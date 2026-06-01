@@ -1,10 +1,35 @@
 # Yuanzhuo AI Roundtable
 
-An open-source multi-agent roundtable workbench for structured AI debates, decision review, meeting summaries, action items, and Markdown exports. Bring your own OpenAI-compatible API key.
+[![Check](https://github.com/bbinapple/yuanzhuo-ai-roundtable/actions/workflows/check.yml/badge.svg)](https://github.com/bbinapple/yuanzhuo-ai-roundtable/actions/workflows/check.yml)
+[![Release](https://img.shields.io/github/v/release/bbinapple/yuanzhuo-ai-roundtable)](https://github.com/bbinapple/yuanzhuo-ai-roundtable/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Yuanzhuo helps a user turn an ambiguous question into a structured discussion between multiple AI roles. It is designed for local-first decision support: agents debate, a moderator can keep the discussion on track, and a summary agent turns the conversation into takeaways and next actions.
+Yuanzhuo turns one messy question into a structured multi-agent roundtable, then exports decisions, action items, scores, tags, and summaries. It is local-first, BYOK-first, and built around OpenAI-compatible chat completion APIs.
 
 > 中文摘要：Yuanzhuo AI Roundtable 是一个通用多 Agent 圆桌决策工作台。用户输入议题，多个 Agent 从不同角度讨论，最后生成总结、待办、标签、评分和 Markdown 导出。项目默认不内置服务方 API Key，用户在浏览器里填写自己的 OpenAI-compatible API 配置。
+
+![Yuanzhuo single-panel workspace](docs/assets/yuanzhuo-home.png)
+
+## Why Yuanzhuo?
+
+Many AI tools produce a single answer. Yuanzhuo is designed for questions where a single answer is not enough: product tradeoffs, project reviews, meeting follow-ups, negotiation prep, and operational decisions that need several perspectives before a human decides.
+
+Yuanzhuo helps you:
+
+- compare multiple agent viewpoints in one session
+- pause for user input when the debate needs missing context
+- convert a discussion into todos, tags, scores, and a Markdown export
+- run locally without a maintainer-owned API key
+
+Good use cases:
+
+- product and feature decision review
+- meeting summary and action-item extraction
+- side project or startup idea review
+- ecommerce product opportunity review with sanitized public examples
+- negotiation prep and scenario planning
+
+Yuanzhuo is not an autonomous decision maker and does not guarantee business, financial, legal, or medical outcomes.
 
 ## Features
 
@@ -18,6 +43,8 @@ Yuanzhuo helps a user turn an ambiguous question into a structured discussion be
 
 ## Quick Start
 
+### Python
+
 ```bash
 cd yuanzhuo-ai-roundtable
 python3 -m venv .venv
@@ -27,6 +54,18 @@ python3 server.py
 ```
 
 Open the URL printed by the server, usually:
+
+```text
+http://127.0.0.1:8888/
+```
+
+### Docker
+
+```bash
+docker compose up --build
+```
+
+Then open:
 
 ```text
 http://127.0.0.1:8888/
@@ -51,10 +90,6 @@ All checks passed.
 ## Screenshots
 
 The screenshots below use an empty local history and no real API key.
-
-### Single-panel workspace
-
-![Yuanzhuo single-panel workspace](docs/assets/yuanzhuo-home.png)
 
 ### BYOK API settings
 
@@ -120,6 +155,7 @@ More docs:
 - [Configuration](docs/CONFIGURATION.md)
 - [Privacy](docs/PRIVACY.md)
 - [Deployment](docs/DEPLOYMENT.md)
+- [Example outputs](examples/)
 - [v0.1.0 Release Notes](docs/release/v0.1.0.md)
 - [Starter GitHub Issues](docs/GITHUB_ISSUES_TO_CREATE.md)
 
@@ -134,12 +170,15 @@ More docs:
 
 ## Roadmap
 
-- More provider presets.
-- Better role and template marketplace.
-- Optional local storage encryption.
-- Export formats beyond Markdown.
-- More example workflows.
-- Docker packaging.
+| Area | Status | Issue |
+|---|---|---|
+| Docker packaging | Planned | [#1](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/1) |
+| Provider presets | Planned | [#2](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/2) |
+| Streaming regression tests | Planned | [#3](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/3) |
+| i18n coverage | Planned | [#4](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/4) |
+| Tool permission UX | Planned | [#5](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/5) |
+| More example workflows | Planned | [#6](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/6) |
+| Export formats beyond Markdown | Planned | [#7](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/7) |
 
 ## Maintainer Use Of Codex
 

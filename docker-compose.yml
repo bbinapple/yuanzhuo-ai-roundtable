@@ -1,0 +1,18 @@
+services:
+  yuanzhuo:
+    build: .
+    ports:
+      - "8888:8888"
+    environment:
+      YUANZHUO_RELAY_BASE_URL: "https://api.openai.com/v1"
+      YUANZHUO_RELAY_API_KEY: ""
+      YUANZHUO_ENABLE_READ_LOCAL: ""
+      YUANZHUO_TOOL_CONFIRM_THRESHOLD: "0"
+      YUANZHUO_EXPORT_DIR: "/data/exports"
+    volumes:
+      - yuanzhuo-data:/home/yuanzhuo/.yuanzhuo
+      - yuanzhuo-exports:/data/exports
+
+volumes:
+  yuanzhuo-data:
+  yuanzhuo-exports:

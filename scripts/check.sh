@@ -72,7 +72,27 @@ done
 
 curl -fsS "http://127.0.0.1:${PORT}/" >/dev/null
 curl -fsS "http://127.0.0.1:${PORT}/dual" >/dev/null
+curl -fsS "http://127.0.0.1:${PORT}/simple" >/dev/null
+curl -fsS "http://127.0.0.1:${PORT}/panel.js" >/dev/null
 curl -fsS "http://127.0.0.1:${PORT}/api/roles" >/dev/null
 curl -fsS "http://127.0.0.1:${PORT}/api/health" >/dev/null
+
+models_status="$(curl -sS -o /dev/null -w "%{http_code}" \
+  -X POST "http://127.0.0.1:${PORT}/api/models" \
+  -H "Content-Type: application/json" \
+  -d '{"base_url":"https://api.openai.com/v1","api_key":""}')"
+if [[ "$models_status" != "400" ]]; then
+  echo "Expected /api/models without API key to return 400, got ${models_status}" >&2
+  exit 1
+fi
+
+round_status="$(curl -sS -o /dev/null -w "%{http_code}" \
+  -X POST "http://127.0.0.1:${PORT}/api/round" \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"Smoke test","api_settings":{"base_url":"https://api.openai.com/v1","api_key":""}}')"
+if [[ "$round_status" != "400" ]]; then
+  echo "Expected /api/round without API key to return 400, got ${round_status}" >&2
+  exit 1
+fi
 
 echo "All checks passed."

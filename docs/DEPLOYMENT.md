@@ -11,6 +11,22 @@ pip install -r requirements.txt
 python3 server.py
 ```
 
+## Docker
+
+For a local containerized run:
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+```text
+http://127.0.0.1:8888/
+```
+
+The Compose setup keeps local history and exports in Docker volumes. It does not include a maintainer-owned API key. Users still enter their own provider settings in the browser.
+
 ## Shared Deployment Checklist
 
 - Serve over HTTPS.
