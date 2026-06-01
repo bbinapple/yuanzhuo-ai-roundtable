@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>圆桌会议 · 双面板</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+:root {
+  --bg:     #f2e8d0;
+  --bg-2:   #e8dbbe;
+  --bg-3:   #dfd0a8;
+  --border: #c4aa7a;
+  --text:   #2c1f0e;
+  --dim:    #7a6245;
+  --gold:   #9a7320;
+  --c:      #1e6b4a;
+  --c-dim:  rgba(30,107,74,.1);
+  --c-b:    rgba(30,107,74,.35);
+  --x:      #9c2e1a;
+  --x-dim:  rgba(156,46,26,.1);
+  --x-b:    rgba(156,46,26,.35);
+  --ok:     #2d6e3a;
+  --err:    #8b1e1e;
+  --warn:   #7a5a00;
+  --warn-bg: rgba(154,115,32,.12);
+  --cyan:   #0e6b7a;
+  --cyan-b: rgba(14,107,122,.35);
+  --cyan-dim: rgba(14,107,122,.1);
+  --sidebar-w: 200px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  height:100%;overflow:hidden;
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  color:var(--text);background:var(--bg);
+}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='200' height='200' filter='url(%23n)' opacity='0.06'/></svg>"),
+    radial-gradient(ellipse at 50% 0%, rgba(255,245,210,.6) 0%, transparent 70%),
+    radial-gradient(ellipse at 50% 100%, rgba(180,140,80,.15) 0%, transparent 70%);
+}
+/* ── Dual layout ── */
+.dual-shell{display:flex;height:100vh;position:relative;z-index:1}
+.pane{flex:1;min-width:0;display:flex;flex-direction:column}
+.pane-divider{width:2px;background:var(--border);flex-shrink:0}
+/* ── Sidebar ── */
+.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:linear-gradient(to bottom,#e0d0a8,#d8c89a);
+  border-right:2px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sb-hd{
+  padding:10px 12px 8px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(to bottom,#ecdfc0,#e4d3a8);
+}
+.sb-hd-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.sb-title{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--gold)}
+.btn-new-topic{
+  background:transparent;border:1px solid var(--border);color:var(--dim);
+  border-radius:5px;font-size:10px;padding:2px 6px;cursor:pointer;font-family:inherit;
+  background:rgba(255,255,255,.3);transition:all .2s;
+}
+.btn-new-topic:hover{border-color:var(--gold);color:var(--gold)}
+.sb-search-row{display:flex;gap:4px;margin-bottom:4px}
+.sb-search-input{
+  flex:1;padding:4px 8px;border:1px solid var(--border);border-radius:6px;
+  background:rgba(255,252,240,.8);color:var(--text);font-family:inherit;font-size:11px;
+  outline:none;transition:border-color .2s;
+}
+.sb-search-input:focus{border-color:var(--gold)}
+.sb-tag-select{
+  padding:4px 4px;border:1px solid var(--border);border-radius:6px;
+  background:rgba(255,252,240,.8);color:var(--text);font-family:inherit;
+  font-size:10px;outline:none;cursor:pointer;max-width:62px;
+}
+.sb-list{flex:1;overflow-y:auto;padding:8px 0}
+.sb-list::-webkit-scrollbar{width:3px}
+.sb-list::-webkit-scrollbar-thumb{background:var(--border)}
+.sb-item{
+  padding:9px 12px;cursor:pointer;border-bottom:1px solid rgba(196,170,122,.3);
+  transition:background .15s;
+}
+.sb-item:hover,.sb-item.active{background:rgba(154,115,32,.15)}
+.btn-del-topic{opacity:0;font-size:11px;padding:2px 6px;border:1px solid rgba(220,50,50,.4);border-radius:4px;background:rgba(220,50,50,.08);color:#c0392b;cursor:pointer;transition:opacity .15s;margin-left:auto;font-family:inherit}
+.sb-item:hover .btn-del-topic{opacity:1}
+.sb-item-topic{font-size:12px;font-weight:600;color:var(--text);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-item-meta{font-size:10px;color:var(--dim);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.sb-tag-chip{
+  display:inline-block;padding:1px 5px;border-radius:8px;font-size:9px;
+  background:rgba(154,115,32,.15);border:1px solid rgba(154,115,32,.3);color:var(--gold);
+}
+.sb-todo-progress{font-size:9px;color:var(--dim)}
+.sb-empty{padding:20px 14px;font-size:11px;color:var(--dim);text-align:center}
+/* ── Main area ── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;max-width:none}
+/* ── Header ── */
+.hd{
+  flex-shrink:0;display:grid;grid-template-columns:1fr 100px 1fr;
+  border-bottom:2px solid var(--border);
+  background:linear-gradient(to bottom,#ecdfc0,#e4d3a8);
+  box-shadow:0 2px 8px rgba(100,70,20,.12);
+}
+.fp{padding:10px 12px;display:flex;flex-direction:column;gap:3px}
+.fp.cl{border-right:1px solid var(--border)}
+.fp.cx{border-left:1px solid var(--border);align-items:flex-end;text-align:right}
+.fn{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:700}
+.fp.cx .fn{flex-direction:row-reverse}
+.btn-role-settings{
+  width:24px;height:24px;display:inline-grid;place-items:center;
+  border:1px solid var(--border);border-radius:8px;background:var(--card);
+  color:var(--dim);cursor:pointer;flex-shrink:0;
+}
+.btn-role-settings:hover{border-color:var(--gold);color:var(--gold);background:rgba(154,115,32,.08)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--border);
+  transition:background .3s,box-shadow .3s;flex-shrink:0}
+.dot.c.active{background:var(--c);box-shadow:0 0 7px rgba(30,107,74,.5)}
+.dot.x.active{background:var(--x);box-shadow:0 0 7px rgba(156,46,26,.5)}
+.ft{font-size:10px;letter-spacing:.6px;font-weight:700;text-transform:uppercase}
+.fp.cl .ft{color:var(--c)}.fp.cx .ft{color:var(--x)}
+.b.m{background:linear-gradient(135deg,#fff7ed,#fff);border-color:#fed7aa;border-left:4px solid #ea580c;border-radius:4px 16px 16px 16px}
+.ml-name.m{color:#c2410c}
+.hc{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:8px}
+.htitle{font-size:12px;font-weight:700;color:var(--gold);letter-spacing:1px}
+/* ── Chat ── */
+.chat{
+  flex:1;overflow-y:auto;padding:16px 16px 8px;
+  display:flex;flex-direction:column;gap:2px;
+  background:
+    radial-gradient(ellipse at 12% 35%,rgba(30,107,74,.06) 0%,transparent 50%),
+    radial-gradient(ellipse at 88% 65%,rgba(156,46,26,.06) 0%,transparent 50%),
+    linear-gradient(to bottom,var(--bg) 0%,#edd9a3 100%);
+}
+.chat::-webkit-scrollbar{width:4px}
+.chat::-webkit-scrollbar-track{background:transparent}
+.chat::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.pill{
+  align-self:center;padding:5px 16px;border-radius:20px;
+  font-size:12px;margin:4px 0;display:none;border:1px solid;
+}
+.pill.info{background:rgba(154,115,32,.08);border-color:rgba(154,115,32,.4);color:var(--gold)}
+.pill.done{background:rgba(45,110,58,.08);border-color:rgba(45,110,58,.4);color:var(--ok)}
+.pill.error{background:rgba(139,30,30,.08);border-color:rgba(139,30,30,.4);color:var(--err)}
+.sep{
+  align-self:stretch;display:flex;align-items:center;gap:10px;
+  font-size:12px;color:var(--dim);padding:16px 0 8px;
+}
+.sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--border)}
+.sep span{color:var(--gold);white-space:nowrap;padding:0 4px}
+/* ── Message Row ── */
+.mr{display:flex;flex-direction:column;margin:10px 0}
+.mr.r{align-items:flex-end}
+.ml{display:flex;align-items:center;gap:6px;padding:0 4px;margin-bottom:5px;
+  font-size:11px;font-weight:600;letter-spacing:.3px}
+.mr.r .ml{flex-direction:row-reverse}
+.ml-name.c{color:var(--c)}.ml-name.x{color:var(--x)}.ml-name.user{color:var(--gold)}
+.ml-meta{font-size:10px;color:var(--dim);font-weight:400}
+.bw{max-width:88%}
+.btn-copy{opacity:0;font-size:11px;padding:1px 6px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--dim);cursor:pointer;transition:opacity .15s;display:block;margin-top:3px;font-family:inherit;line-height:1.4}
+.mr:hover .btn-copy{opacity:1}
+.b{
+  padding:10px 13px;font-size:13px;line-height:1.8;position:relative;
+  box-shadow:0 1px 4px rgba(100,70,20,.1);
+}
+.b.c{
+  background:linear-gradient(135deg,rgba(30,107,74,.08),rgba(30,107,74,.04));
+  border:1px solid var(--c-b);border-left:3px solid var(--c);
+  border-radius:3px 14px 14px 14px;
+}
+.b.x{
+  background:linear-gradient(225deg,rgba(156,46,26,.08),rgba(156,46,26,.04));
+  border:1px solid var(--x-b);border-right:3px solid var(--x);
+  border-radius:14px 3px 14px 14px;
+}
+.b.user-msg{
+  background:rgba(154,115,32,.1);border:1px solid rgba(154,115,32,.4);
+  border-radius:14px;font-size:13px;color:var(--text);
+}
+.b.thinking{color:var(--dim);font-style:italic;display:flex;align-items:center;gap:8px}
+.dots span{
+  display:inline-block;width:4px;height:4px;border-radius:50%;margin:0 1px;
+  animation:bounce 1.2s ease-in-out infinite;
+}
+.b.c .dots span{background:var(--c)}.b.x .dots span{background:var(--x)}
+.dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.3}40%{transform:translateY(-4px);opacity:1}}
+.b.c.streaming::after{content:"▋";color:var(--c);animation:blink .8s step-end infinite;margin-left:1px}
+.b.x.streaming::after{content:"▋";color:var(--x);animation:blink .8s step-end infinite;margin-left:1px}
+.b.sec.streaming::after{content:"▋";color:var(--warn);animation:blink .8s step-end infinite;margin-left:1px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.adj{
+  display:inline-block;background:rgba(154,115,32,.12);color:var(--gold);
+  border:1px solid rgba(154,115,32,.4);padding:1px 7px;border-radius:4px;
+  font-size:11px;margin-left:4px;
+}
+.b h2{font-size:13px;font-weight:700;margin:10px 0 4px;padding-left:7px}
+.b.c h2{color:var(--c);border-left:2px solid var(--c)}
+.b.x h2{color:var(--x);border-left:2px solid var(--x)}
+.b h3{font-size:13px;font-weight:600;margin:8px 0 3px}
+.b p{margin:4px 0}.b ul,.b ol{padding-left:16px;margin:4px 0}.b li{margin:2px 0}
+.b strong{color:var(--text)}
+.b blockquote{padding:4px 10px;margin:5px 0;border-radius:0 4px 4px 0;font-size:13px}
+.b.c blockquote{border-left:2px solid var(--c);background:rgba(30,107,74,.06);color:var(--c)}
+.b.x blockquote{border-left:2px solid var(--x);background:rgba(156,46,26,.06);color:var(--x)}
+.b hr{border:none;border-top:1px solid var(--border);margin:8px 0}
+.b code{background:rgba(100,70,20,.1);padding:1px 5px;border-radius:3px;font-size:12px}
+.b.c code{color:var(--c)}.b.x code{color:var(--x)}
+.tool-row{
+  align-self:center;padding:4px 12px;border-radius:12px;font-size:11px;
+  background:rgba(100,70,20,.08);border:1px solid rgba(100,70,20,.2);
+  color:var(--dim);margin:4px 0;font-style:italic;max-width:90%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tool-row.calling{color:var(--gold);background:var(--warn-bg);border-color:rgba(154,115,32,.3)}
+.research-panel{
+  margin:12px 0;border:1px solid var(--cyan-b);border-left:4px solid var(--cyan);
+  border-radius:6px;background:var(--cyan-dim);padding:14px 16px;
+}
+.research-label{font-size:11px;font-weight:700;color:var(--cyan);margin-bottom:8px;letter-spacing:.5px}
+.b.research-body{background:none;border:none;box-shadow:none;padding:0;font-size:13px;line-height:1.8}
+.b.research-body.streaming::after{content:"▋";color:var(--cyan);animation:blink .8s step-end infinite;margin-left:1px}
+.moderator-strip{
+  align-self:center;padding:5px 16px;border-radius:20px;font-size:12px;margin:6px 0;
+  background:rgba(122,90,0,.08);border:1px solid rgba(122,90,0,.25);
+  color:var(--warn);font-style:italic;max-width:90%;text-align:center;
+}
+.sec-panel{
+  margin:12px 0;border:1px solid rgba(154,115,32,.5);border-left:4px solid var(--gold);
+  border-radius:6px;background:rgba(154,115,32,.06);padding:14px 16px;
+}
+.sec-label{font-size:11px;font-weight:700;color:var(--gold);margin-bottom:8px;letter-spacing:.5px}
+.b.sec{background:none;border:none;box-shadow:none;padding:0;font-size:13px;line-height:1.8}
+.sec-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.btn-export{
+  display:inline-flex;align-items:center;gap:5px;padding:5px 14px;
+  background:rgba(154,115,32,.12);border:1px solid rgba(154,115,32,.5);
+  border-radius:6px;color:var(--gold);font-size:12px;font-weight:600;
+  cursor:pointer;font-family:inherit;transition:all .2s;
+}
+.btn-export:hover{background:rgba(154,115,32,.22);border-color:var(--gold)}
+.todos-panel{
+  margin:10px 0 0;padding:10px 14px;
+  border:1px solid rgba(100,70,20,.3);border-radius:6px;
+  background:rgba(100,70,20,.04);
+}
+.todos-label{font-size:11px;font-weight:700;color:var(--dim);margin-bottom:8px;letter-spacing:.5px}
+.todo-item{
+  display:flex;align-items:flex-start;gap:8px;
+  padding:4px 0;font-size:12px;color:var(--text);
+  border-bottom:1px solid rgba(196,170,122,.2);
+}
+.todo-item:last-child{border-bottom:none}
+.todo-cb{width:14px;height:14px;cursor:pointer;flex-shrink:0;margin-top:2px;accent-color:var(--c)}
+.todo-text{flex:1;line-height:1.5}
+.todo-text.done-text{text-decoration:line-through;color:var(--dim)}
+.tags-row{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.tag-chip{
+  display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;
+  background:rgba(154,115,32,.12);border:1px solid rgba(154,115,32,.35);color:var(--gold);
+}
+.score-card{
+  margin:8px 0 0;padding:10px 14px;
+  border:1px solid rgba(154,115,32,.4);border-radius:6px;
+  background:rgba(154,115,32,.06);font-size:12px;
+}
+.score-card-title{font-size:11px;font-weight:700;color:var(--gold);margin-bottom:6px;letter-spacing:.5px}
+.score-row{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px}
+.score-item{display:flex;align-items:center;gap:4px}
+.score-num{font-weight:700;font-size:13px;color:var(--text)}
+.score-comment{color:var(--dim);font-style:italic;margin-top:4px;font-size:11px}
+.ask-user{
+  margin:10px 0;padding:14px 16px;
+  border:2px solid var(--gold);border-radius:10px;
+  background:rgba(154,115,32,.08);
+}
+.ask-user-label{font-size:12px;font-weight:700;color:var(--gold);margin-bottom:10px}
+.ask-user input[type=text],.ask-user textarea{
+  width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;
+  background:rgba(255,252,240,.9);color:var(--text);font-family:inherit;font-size:13px;
+  outline:none;transition:border-color .2s,box-shadow .2s;resize:none;
+}
+.ask-user input[type=text]:focus,.ask-user textarea:focus{
+  border-color:var(--gold);box-shadow:0 0 0 3px rgba(154,115,32,.15);
+}
+.ask-user-btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btn-stage{
+  padding:6px 18px;border-radius:8px;font-size:13px;font-weight:600;
+  cursor:pointer;font-family:inherit;border:1px solid;transition:all .2s;
+}
+.btn-stage.primary{background:linear-gradient(135deg,var(--c),#155c3d);color:#fff;border-color:var(--c)}
+.btn-stage.primary:hover{opacity:.88}
+.btn-stage.warn{background:#fff3e0;color:var(--warn);border-color:rgba(154,115,32,.5)}
+.btn-stage.warn:hover{background:#ffe8b0}
+.btn-stage.danger{background:#fdf0ef;color:var(--x);border-color:rgba(156,46,26,.4)}
+.btn-stage.danger:hover{background:#fce0dd}
+.btn-stage.neutral{background:rgba(100,70,20,.08);color:var(--dim);border-color:var(--border)}
+.btn-stage.neutral:hover{background:rgba(100,70,20,.14)}
+.modal-overlay{
+  display:none;position:fixed;inset:0;z-index:100;
+  background:rgba(0,0,0,.4);align-items:center;justify-content:center;
+}
+.modal-overlay.visible{display:flex}
+.modal{
+  background:var(--bg);border:2px solid var(--border);border-radius:12px;
+  padding:24px;width:480px;max-width:90vw;box-shadow:0 8px 32px rgba(0,0,0,.2);
+}
+.modal h3{font-size:15px;color:var(--text);margin-bottom:14px}
+.modal input[type=text]{
+  width:100%;padding:9px 13px;border:1px solid var(--border);border-radius:8px;
+  background:rgba(255,252,240,.9);color:var(--text);font-family:inherit;font-size:13px;
+  outline:none;transition:border-color .2s;margin-bottom:10px;
+}
+.modal input[type=password],.modal select{
+  width:100%;padding:9px 13px;border:1px solid var(--border);border-radius:8px;
+  background:rgba(255,252,240,.9);color:var(--text);font-family:inherit;font-size:13px;
+  outline:none;transition:border-color .2s;margin-bottom:10px;
+}
+.modal textarea{
+  width:100%;min-height:180px;padding:9px 13px;margin-bottom:10px;
+  border:1px solid var(--border);border-radius:8px;background:rgba(255,252,240,.9);
+  color:var(--text);font-family:inherit;font-size:13px;line-height:1.65;
+  outline:none;resize:vertical;transition:border-color .2s,box-shadow .2s;
+}
+.modal input[type=text]:focus,.modal input[type=password]:focus,.modal select:focus,.modal textarea:focus{border-color:var(--gold)}
+.custom-role-row{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px}
+.custom-role-model-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.custom-role-model-row .btn-stage{height:38px;white-space:nowrap}
+.custom-role-field-label{margin:0 0 6px;color:var(--dim);font-size:11px;font-weight:700}
+.custom-role-reasoning-meta{margin:-4px 0 10px;color:var(--dim);font-size:11px;line-height:1.45}
+.custom-role-hint{font-size:11px;color:var(--dim);line-height:1.55;margin:-4px 0 10px}
+.custom-role-list{margin:0 0 10px;display:grid;gap:8px}
+.custom-role-item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 10px;border:1px solid var(--border);border-radius:8px;
+  background:rgba(100,70,20,.06);color:var(--dim);font-size:12px;
+}
+.custom-role-actions{display:flex;gap:6px;flex-shrink:0}
+.modal-btns{display:flex;gap:8px;margin-top:4px}
+.modal-topics{margin-top:12px}
+.modal-topic-item{
+  padding:8px 12px;border:1px solid var(--border);border-radius:8px;
+  cursor:pointer;margin-bottom:6px;font-size:13px;transition:all .2s;
+}
+.modal-topic-item:hover{background:rgba(154,115,32,.12);border-color:var(--gold)}
+.modal-hint{font-size:11px;color:var(--dim);margin-bottom:8px}
+.role-wrap{display:flex;gap:8px;align-items:center;flex-shrink:0}
+.role-label{font-size:10px;color:var(--dim);white-space:nowrap}
+.role-select{
+  padding:3px 6px;border:1px solid var(--border);border-radius:6px;
+  background:rgba(255,252,240,.9);color:var(--text);font-family:inherit;
+  font-size:11px;outline:none;cursor:pointer;transition:border-color .2s;max-width:100px;
+}
+.role-select:focus{border-color:var(--gold)}
+.bot{
+  flex-shrink:0;padding:8px 14px 12px;
+  background:linear-gradient(to top,#e4d3a8,#ecdfc0);
+  border-top:2px solid var(--border);
+  box-shadow:0 -2px 8px rgba(100,70,20,.1);
+}
+.bot-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;gap:6px;flex-wrap:wrap}
+.imeta{display:flex;justify-content:space-between;align-items:center;
+  flex:1;font-size:11px;color:var(--dim);min-width:0}
+.imeta .c{color:var(--c);font-weight:600}
+.imeta .x{color:var(--x);font-weight:600}
+.bot-controls{display:flex;gap:4px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.template-select{
+  padding:3px 6px;border:1px solid var(--border);border-radius:6px;
+  background:rgba(255,252,240,.9);color:var(--text);font-family:inherit;
+  font-size:11px;outline:none;cursor:pointer;transition:border-color .2s;
+}
+.template-select:focus{border-color:var(--gold)}
+.research-toggle{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--cyan);cursor:pointer;flex-shrink:0}
+.research-toggle input{accent-color:var(--cyan);cursor:pointer}
+.attach-preview{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.attach-chip{
+  display:flex;align-items:center;gap:4px;padding:2px 8px;
+  background:rgba(154,115,32,.12);border:1px solid rgba(154,115,32,.4);
+  border-radius:10px;font-size:11px;color:var(--dim);
+}
+.attach-chip .rm{cursor:pointer;color:var(--x);font-size:11px;margin-left:2px;line-height:1}
+.irow{display:flex;gap:6px;align-items:flex-end}
+.irow textarea{
+  flex:1;background:rgba(255,252,240,.8);border:1px solid var(--border);
+  border-radius:10px;color:var(--text);font-family:inherit;
+  font-size:13px;line-height:1.5;padding:9px 11px;
+  resize:none;height:40px;max-height:110px;outline:none;
+  transition:border-color .2s,box-shadow .2s;overflow-y:hidden;
+  box-shadow:inset 0 1px 3px rgba(100,70,20,.1);
+}
+.irow textarea:focus{border-color:var(--gold);box-shadow:inset 0 1px 3px rgba(100,70,20,.1),0 0 0 3px rgba(154,115,32,.15)}
+.irow textarea::placeholder{color:var(--dim)}
+.irow textarea:disabled{opacity:.5;cursor:not-allowed}
+.btn-attach{
+  background:rgba(255,252,240,.8);border:1px solid var(--border);color:var(--dim);
+  border-radius:10px;font-size:17px;width:40px;height:40px;flex-shrink:0;
+  cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;
+}
+.btn-attach:hover{border-color:var(--gold);color:var(--gold);background:rgba(255,252,240,1)}
+.btn-extract{
+  background:rgba(255,252,240,.8);border:1px solid var(--border);color:var(--dim);
+  border-radius:10px;font-size:15px;width:40px;height:40px;flex-shrink:0;
+  cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;
+}
+.btn-extract:hover{border-color:var(--gold);color:var(--gold);background:rgba(255,252,240,1)}
+.btn{
+  background:linear-gradient(135deg,var(--c),#155c3d);
+  color:#fff;border:none;border-radius:10px;
+  font-size:13px;font-weight:700;padding:0 16px;height:40px;
+  cursor:pointer;white-space:nowrap;transition:opacity .2s,box-shadow .2s;
+  font-family:inherit;flex-shrink:0;
+  box-shadow:0 2px 6px rgba(30,107,74,.35);
+}
+.btn:hover:not(:disabled){opacity:.9;box-shadow:0 3px 10px rgba(30,107,74,.45)}
+.btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.hist-view{
+  display:none;position:absolute;inset:0;z-index:10;
+  background:var(--bg);overflow-y:auto;padding:24px;
+}
+.hist-view.visible{display:block}
+.hist-view-hd{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.hist-view-hd h2{flex:1;font-size:16px;color:var(--text)}
+.btn-back{
+  background:transparent;border:1px solid var(--border);color:var(--dim);
+  border-radius:6px;font-size:12px;padding:4px 12px;cursor:pointer;font-family:inherit;
+  transition:all .2s;
+}
+.btn-back:hover{border-color:var(--gold);color:var(--gold)}
+.hist-turn{margin:14px 0;border-radius:8px;overflow:hidden}
+.hist-turn-hd{padding:6px 14px;font-size:12px;font-weight:700}
+.hist-turn-hd.c{background:rgba(30,107,74,.15);color:var(--c)}
+.hist-turn-hd.x{background:rgba(156,46,26,.15);color:var(--x)}
+.hist-turn-hd.m{background:rgba(234,88,12,.12);color:#c2410c}
+.hist-turn-hd.user{background:rgba(154,115,32,.15);color:var(--gold)}
+.hist-turn-body{
+  padding:12px 14px;font-size:13px;line-height:1.8;
+  border:1px solid var(--border);border-top:none;border-radius:0 0 8px 8px;
+  background:rgba(255,252,240,.5);
+}
+.hist-todos{margin:14px 0}
+.hist-todos-title{font-size:12px;font-weight:700;color:var(--dim);margin-bottom:8px}
+.hist-todo-item{display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px;border-bottom:1px solid rgba(196,170,122,.2)}
+.hist-todo-item:last-child{border-bottom:none}
+.hist-todo-cb{cursor:pointer;accent-color:var(--c);margin-top:2px}
+/* A1 气泡折叠 */
+.bw{display:flex;flex-direction:column;align-items:flex-start}
+.bw .b{align-self:stretch}
+.b.collapsed{max-height:160px;overflow:hidden;position:relative}
+.b.collapsed::after{
+  content:'';position:absolute;left:0;right:0;bottom:0;height:50px;
+  background:linear-gradient(transparent,rgba(20,20,20,0.95));pointer-events:none;
+}
+.btn-toggle{
+  font-size:11px;padding:2px 8px;background:transparent;
+  border:1px solid var(--gold,#caa86b);color:var(--gold,#caa86b);
+  border-radius:4px;cursor:pointer;margin-top:4px;align-self:flex-end;
+}
+.btn-toggle:hover{background:var(--gold,#caa86b);color:#000}
+/* A2/A3 顶部按钮 */
+.btn-mini{
+  background:transparent;border:1px solid #444;color:#ddd;
+  padding:4px 8px;border-radius:4px;cursor:pointer;font-size:13px;
+}
+.btn-mini:hover{border-color:var(--gold,#caa86b);color:var(--gold,#caa86b)}
+/* B1 重新生成按钮 */
+.btn-regen{
+  font-size:11px;padding:2px 8px;background:transparent;
+  border:1px solid #666;color:#888;
+  border-radius:4px;cursor:pointer;margin-top:4px;align-self:flex-end;
+}
+.btn-regen:hover{border-color:#f5a;color:#f5a}
+/* B2 思考深度 */
+.reasoning-select{
+  background:#1a1a1a;border:1px solid #444;color:#ddd;
+  padding:3px 6px;border-radius:4px;font-size:11px;cursor:pointer;flex-shrink:0;
+}
+.reasoning-select:hover{border-color:var(--gold,#caa86b)}
+/* B4 代码块复制 */
+.btn-code-copy{
+  position:absolute;top:6px;right:6px;
+  background:rgba(0,0,0,0.5);border:1px solid #555;color:#ddd;
+  padding:2px 6px;font-size:11px;border-radius:3px;cursor:pointer;
+  opacity:0;transition:opacity .15s;
+}
+pre:hover .btn-code-copy{opacity:1}
+.btn-code-copy:hover{background:rgba(0,0,0,0.8);border-color:var(--gold,#caa86b)}
+/* B3 角色 prompt 模态框 */
+.modal.modal-role{width:720px;max-height:80vh;display:flex;flex-direction:column}
+.modal-role .modal-body{
+  flex:1;overflow:auto;padding:14px;
+  font-size:13px;line-height:1.6;color:var(--text);
+  border:1px solid var(--border);border-radius:8px;background:rgba(255,252,240,.4);
+  margin-bottom:10px;
+}
+.modal-role .modal-body h1,.modal-role .modal-body h2,.modal-role .modal-body h3{margin:8px 0 4px}
+.modal-role .modal-body code{background:rgba(0,0,0,.05);padding:2px 5px;border-radius:3px;font-size:12px}
+.modal-role .modal-body pre{background:rgba(0,0,0,.06);padding:10px;border-radius:6px;overflow:auto}
+
+/* ── Unified modern workspace overrides ─────────────────────────────────── */
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f1f4f8;
+  --surface-3: #e8edf4;
+  --border: #d9e0ea;
+  --border-strong: #c5cfdd;
+  --text: #111827;
+  --dim: #667085;
+  --muted: #98a2b3;
+  --gold: #4f46e5;
+  --c: #07865f;
+  --c-dim: #e8f8f0;
+  --c-b: #9bd9bd;
+  --x: #c0344d;
+  --x-dim: #fff0f3;
+  --x-b: #f1a3b1;
+  --ok: #0f8f63;
+  --err: #c92f43;
+  --warn: #b45b05;
+  --warn-bg: #fff7ed;
+  --cyan: #05788a;
+  --cyan-b: #8bd6e2;
+  --cyan-dim: #e9f9fb;
+  --sidebar-w: 292px;
+  --topbar-h: 58px;
+  --shadow-sm: 0 1px 2px rgba(16,24,40,.06);
+  --shadow-md: 0 14px 40px rgba(16,24,40,.10);
+}
+html, body { background: var(--bg); color: var(--text); font-size: 14px; }
+body::before { display: none; }
+button, input, select, textarea { font: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 2px solid rgba(79,70,229,.55);
+  outline-offset: 2px;
+}
+.dual-topbar {
+  position: relative;
+  z-index: 20;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.86);
+  backdrop-filter: blur(18px);
+}
+.dual-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dual-brand-mark {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--gold), #08a879);
+  box-shadow: 0 8px 24px rgba(79,70,229,.22);
+}
+.dual-brand-title { font-size: 15px; font-weight: 780; }
+.dual-brand-sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+.dual-top-actions { display: flex; align-items: center; gap: 8px; }
+.dual-link {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--dim);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  transition: background .16s ease, border-color .16s ease, color .16s ease;
+}
+.dual-link:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--text); }
+.dual-shell {
+  height: calc(100vh - var(--topbar-h));
+  background:
+    linear-gradient(135deg, rgba(79,70,229,.06), transparent 34%),
+    radial-gradient(circle at 88% 20%, rgba(7,134,95,.08), transparent 32%),
+    var(--bg);
+}
+.sidebar {
+  background: rgba(255,255,255,.88);
+  border-right: 1px solid var(--border);
+  backdrop-filter: blur(18px);
+}
+.sb-hd {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+}
+.sb-title { color: var(--text); font-size: 13px; letter-spacing: 0; }
+.btn-new-topic, .btn-back, .btn-stage, .btn-resume, .btn-resume-r, .btn-del-topic {
+  border: 1px solid var(--border) !important;
+  border-radius: 9px !important;
+  background: var(--surface) !important;
+  color: var(--dim) !important;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease !important;
+}
+.btn-new-topic { padding: 6px 9px; font-size: 12px; font-weight: 700; }
+.btn-new-topic:hover, .btn-back:hover, .btn-resume:hover, .btn-resume-r:hover {
+  color: var(--gold) !important;
+  border-color: rgba(79,70,229,.28) !important;
+  background: rgba(79,70,229,.06) !important;
+}
+.sb-search-row { display: grid; grid-template-columns: minmax(0,1fr) 88px; gap: 8px; margin: 0; }
+.sb-search-input, .sb-tag-select, .role-select, .template-select, .reasoning-select, .modal input[type=text], .irow textarea {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: none;
+}
+.sb-search-input { min-width: 0; padding: 9px 10px; font-size: 13px; }
+.sb-tag-select { max-width: none; padding: 9px 8px; font-size: 12px; }
+.sb-search-input:focus, .sb-tag-select:focus, .role-select:focus, .template-select:focus, .reasoning-select:focus, .modal input[type=text]:focus, .irow textarea:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+}
+.sb-list { padding: 10px; }
+.sb-list::-webkit-scrollbar, .chat::-webkit-scrollbar, .hist-view::-webkit-scrollbar { width: 6px; }
+.sb-list::-webkit-scrollbar-thumb, .chat::-webkit-scrollbar-thumb, .hist-view::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+.sb-item {
+  padding: 11px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  border-bottom: 0;
+}
+.sb-item:hover, .sb-item.active { background: var(--surface-2); border-color: var(--border); }
+.sb-item-topic { font-size: 13px; line-height: 1.45; }
+.sb-item-meta { color: var(--muted); font-size: 11px; margin-top: 6px; }
+.sb-tag-chip, .tag-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(79,70,229,.18);
+  background: rgba(79,70,229,.07);
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 700;
+}
+.pane { background: rgba(255,255,255,.28); }
+.pane-divider { width: 1px; background: var(--border); }
+.main { background: transparent; }
+.hd {
+  min-width: 0;
+  overflow: hidden;
+  grid-template-columns: minmax(0,1fr) 104px minmax(0,1fr);
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.72);
+  box-shadow: none;
+}
+.fp { min-width: 0; overflow: hidden; padding: 12px 16px; }
+.fn { min-width: 0; font-size: 14px; }
+.fn span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-role-settings {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+.fp.cl { border-right: 1px solid var(--border); }
+.fp.cx { border-left: 1px solid var(--border); }
+.dot { background: var(--border-strong); }
+.dot.c.active { background: var(--c); box-shadow: 0 0 0 5px rgba(7,134,95,.12); }
+.dot.x.active { background: var(--x); box-shadow: 0 0 0 5px rgba(192,52,77,.12); }
+.ft { color: var(--muted); font-size: 11px; letter-spacing: 0; }
+.htitle { color: var(--gold); font-size: 12px; letter-spacing: 0; }
+.chat {
+  padding: 18px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.82), rgba(246,247,249,.72)),
+    radial-gradient(circle at 18% 24%, rgba(7,134,95,.07), transparent 28%),
+    radial-gradient(circle at 82% 68%, rgba(192,52,77,.06), transparent 32%);
+}
+.dual-empty {
+  margin: auto;
+  width: min(360px, 90%);
+  text-align: center;
+  color: var(--dim);
+  line-height: 1.7;
+}
+.dual-empty-title { color: var(--text); font-size: 17px; font-weight: 800; margin-bottom: 6px; }
+.dual-empty-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+}
+.pill {
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.sep span {
+  max-width: 80%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--gold);
+}
+.bw { max-width: min(780px, 86%); }
+.b {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.b.c { background: linear-gradient(135deg, var(--c-dim), #fff); border-color: var(--c-b); border-left: 4px solid var(--c); border-radius: 4px 16px 16px 16px; }
+.b.x { background: linear-gradient(225deg, var(--x-dim), #fff); border-color: var(--x-b); border-right: 4px solid var(--x); border-radius: 16px 4px 16px 16px; }
+.b.m { background: linear-gradient(135deg, #fff7ed, #fff); border-color: #fed7aa; border-left: 4px solid #ea580c; border-radius: 4px 16px 16px 16px; }
+.ml-name.m { color: #c2410c; }
+.b.collapsed::after { background: linear-gradient(transparent, rgba(255,255,255,.96)); }
+.btn-copy, .btn-toggle, .btn-regen {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.9);
+  color: var(--muted);
+}
+.btn-toggle:hover, .btn-regen:hover { background: var(--surface-2); color: var(--gold); border-color: rgba(79,70,229,.28); }
+.tool-row, .moderator-strip {
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--dim);
+}
+.research-panel, .sec-panel, .todos-panel, .score-card, .ask-user {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,.88);
+  box-shadow: var(--shadow-sm);
+}
+.research-panel { border-left: 4px solid var(--cyan); background: var(--cyan-dim); }
+.sec-panel { border-left: 4px solid var(--gold); }
+.btn-export {
+  min-height: 34px;
+  border-radius: 10px;
+}
+.bot {
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--border);
+  background: rgba(255,255,255,.92);
+  box-shadow: none;
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+.bot-top { display: block; margin-bottom: 10px; }
+.imeta { display: none; }
+.imeta span:nth-child(2) { display: none; }
+.bot-controls {
+  max-width: 100%;
+  gap: 7px;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.bot-controls::-webkit-scrollbar { display: none; }
+.bot-controls > * { flex: 0 0 auto; }
+.role-select { max-width: 132px; min-width: 116px; padding: 7px 8px; font-size: 12px; }
+.template-select { max-width: 124px; padding: 7px 8px; font-size: 12px; }
+.reasoning-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 8px;
+  font-size: 12px;
+}
+.research-toggle { color: var(--cyan); font-weight: 700; }
+.btn-mini {
+  height: 34px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--dim);
+  border-radius: 10px;
+}
+.irow { display: grid; grid-template-columns: minmax(0,1fr) 42px 42px 72px; gap: 8px; }
+.irow textarea {
+  width: 100%;
+  height: 44px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+.btn-attach, .btn-extract {
+  width: 42px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface);
+}
+.btn {
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--gold), #3730a3);
+  box-shadow: 0 8px 18px rgba(79,70,229,.18);
+}
+.modal-overlay { background: rgba(15,23,42,.42); }
+.modal {
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.modal-role .modal-body, .hist-turn-body { background: var(--surface-2); border-color: var(--border); }
+.hist-view {
+  background: rgba(246,247,249,.98);
+  padding: 22px;
+}
+.hist-turn {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.hist-turn-hd.c { background: var(--c-dim); }
+.hist-turn-hd.x { background: var(--x-dim); }
+.hist-turn-hd.m { background: #fff7ed; color: #c2410c; }
+.hist-turn-hd.user { background: rgba(79,70,229,.08); color: var(--gold); }
+
+@media (max-width: 1180px) {
+  .dual-shell { overflow-x: auto; }
+  .pane { min-width: 520px; }
+}
+@media (max-width: 760px) {
+  .dual-brand-sub { display: none; }
+  .dual-link { padding: 0 10px; font-size: 12px; }
+  .sidebar { display: none; }
+  .dual-shell { display: block; overflow: auto; }
+  .pane { min-width: 0; height: calc((100vh - var(--topbar-h)) / 2); border-bottom: 1px solid var(--border); }
+  .pane-divider { display: none; }
+  .bot-top { display: none; }
+  .hd { grid-template-columns: minmax(0,1fr) 72px minmax(0,1fr); }
+  .fp { padding: 10px; }
+  .fn { font-size: 13px; }
+  .chat { padding: 14px 12px; }
+  .irow { grid-template-columns: minmax(0,1fr) 42px 42px; }
+  .irow .btn { grid-column: 1 / -1; width: 100%; }
+  .modal-overlay { align-items: flex-end; padding: 10px; }
+  .modal { width: 100%; max-width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+</style>
+<script src="panel.js"></script>
+</head>
+<body>
+<header class="dual-topbar">
+  <div class="dual-brand">
+    <div class="dual-brand-mark">◎</div>
+    <div>
+      <div class="dual-brand-title">AI Roundtable Dual Panel / 圆桌会议双面板</div>
+      <div class="dual-brand-sub">Compare two topics, agent setups, or prompt strategies side by side. / 并行对比两个议题、角色组合或提示方案。</div>
+    </div>
+  </div>
+  <div class="dual-top-actions">
+    <a class="dual-link" href="/">Single / 单面板</a>
+    <a class="dual-link" href="/?mode=advanced">Advanced / 高级版</a>
+  </div>
+</header>
+<div class="dual-shell">
+
+  <!-- Shared sidebar -->
+  <aside class="sidebar">
+    <div class="sb-hd">
+      <div class="sb-hd-top">
+        <span class="sb-title">History / 历史议题</span>
+        <span style="display:flex;gap:3px">
+          <button class="btn-new-topic" onclick="pL.newTopic()" title="New topic in left panel / 左面板新议题">Left +</button>
+          <button class="btn-new-topic" onclick="pR.newTopic()" title="New topic in right panel / 右面板新议题">Right +</button>
+        </span>
+      </div>
+      <div class="sb-search-row">
+        <input class="sb-search-input" id="sb-search" type="text" placeholder="Search topics / 搜议题…" oninput="filterSidebar()">
+        <select class="sb-tag-select" id="sb-tag-filter" onchange="filterSidebar()">
+          <option value="">All / 全部</option>
+        </select>
+      </div>
+    </div>
+    <div class="sb-list" id="sb-list">
+      <div class="sb-empty">No history yet / 暂无历史</div>
+    </div>
+  </aside>
+
+  <!-- Left panel host -->
+  <div class="pane" id="pane-L"></div>
+
+  <!-- Divider -->
+  <div class="pane-divider"></div>
+
+  <!-- Right panel host -->
+  <div class="pane" id="pane-R"></div>
+
+  <!-- History overlay (shared, covers full dual-shell) -->
+  <div class="hist-view" id="hist-view">
+    <div class="hist-view-hd">
+      <h2 id="hist-view-title"></h2>
+      <button class="btn-back" onclick="closeHistView()">← Back / 返回</button>
+    </div>
+    <div id="hist-view-body"></div>
+  </div>
+
+</div>
+
+<!-- Extract modal (shared) -->
+<div class="modal-overlay" id="extract-modal">
+  <div class="modal">
+    <h3>📥 Extract topics from material / 从资料抽议题</h3>
+    <input type="text" id="extract-input" placeholder="Enter URL or local file path / 输入 URL 或本地文件路径" />
+    <div class="modal-btns">
+      <button class="btn-stage primary" onclick="doExtract()">Extract topics / 提取议题</button>
+      <button class="btn-stage neutral" onclick="hideExtractModal()">Cancel / 取消</button>
+    </div>
+    <div class="modal-topics" id="extract-topics" style="display:none">
+      <div class="modal-hint">Choose a topic to load it into the active panel. / 点选议题后载入活跃面板：</div>
+      <div id="extract-topic-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- B3：角色 prompt 查看（共享） -->
+<div class="modal-overlay" id="role-modal">
+  <div class="modal modal-role">
+    <h3 id="role-modal-title">Role Prompt / 角色 prompt</h3>
+    <div class="modal-body" id="role-modal-body"></div>
+    <div class="modal-btns" style="justify-content:flex-end">
+      <button class="btn-stage neutral" onclick="hideRoleModal()">Close / 关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="custom-role-modal">
+  <div class="modal">
+    <h3 id="custom-role-title">🧩 Custom Agent and Model / 自定义角色和模型</h3>
+    <div class="custom-role-hint">API keys are stored in this browser only. API settings, model ID, and the role prompt are sent to the local backend when a round starts. / API Key 仅保存在当前浏览器。</div>
+    <input type="text" id="custom-role-name" placeholder="Agent name, for example: Risk Reviewer / 角色名" />
+    <div class="custom-role-row">
+      <input type="text" id="custom-role-icon" placeholder="图标" maxlength="4" />
+      <input type="text" id="custom-role-subtitle" placeholder="Short tag, for example: Reviewer / 短标签" />
+    </div>
+    <input type="text" id="custom-role-base-url" placeholder="API Base URL，例如：https://api.openai.com/v1" />
+    <input type="password" id="custom-role-api-key" placeholder="LLM API Key（不填则使用全局 API 设置）" autocomplete="off" />
+    <div class="custom-role-model-row">
+      <select id="custom-role-model-select" onchange="selectCustomRoleModel()">
+        <option value="">Fetch models first, or type manually / 先拉取模型，或直接手动输入</option>
+      </select>
+      <button class="btn-stage neutral" onclick="loadCustomRoleModels()">Fetch models / 拉取模型</button>
+    </div>
+    <input type="text" id="custom-role-model" placeholder="模型 ID，例如：gpt-4.1" oninput="updateCustomReasoningOptions()" />
+    <div class="custom-role-field-label">Reasoning / 思考推理</div>
+    <select id="custom-role-reasoning"></select>
+    <div class="custom-role-reasoning-meta" id="custom-role-reasoning-meta"></div>
+    <textarea id="custom-role-body" placeholder="Write this agent's system prompt: focus, voice, output format, and limits. / 写这个角色的 system prompt。"></textarea>
+    <div class="custom-role-list" id="custom-role-list"></div>
+    <div class="modal-btns">
+      <button class="btn-stage primary" id="custom-role-save-btn" onclick="saveCustomRole()">Save and select / 保存并选择</button>
+      <button class="btn-stage neutral" onclick="hideCustomRoleModal()">Cancel / 取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants ───────────────────────────────────────────────────────────────
+const ATTACH_IMG_MAX = 5 * 1024 * 1024;
+const ATTACH_PDF_MAX = 5 * 1024 * 1024;
+const ATTACH_TXT_MAX = 50 * 1000;
+const TEXT_EXTS = new Set(['.md','.txt','.py','.json','.yaml','.yml','.csv','.html','.js','.ts','.sh','.log','.sql','.tsx','.jsx','.css','.xml','.toml','.ini']);
+
+// ── Shared state ────────────────────────────────────────────────────────────
+let allRoles = [];
+let historyData = [];
+let _activePanel = null;
+const CUSTOM_ROLES_KEY = 'yuanzhuo_custom_roles_v1';
+const API_SETTINGS_KEY = 'yuanzhuo_user_api_settings_v1';
+let customRoleTargetPanel = null;
+let customRoleEditingShort = '';
+let customRoleTargetSide = 'a';
+let modelHealth = { available_models: null, missing_default_models: [], models_error: '' };
+
+function getApiSettings() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(API_SETTINGS_KEY) || '{}') || {};
+    const analystModel = raw.analyst_model || raw.claude_model || '';
+    const executorModel = raw.executor_model || raw.codex_model || '';
+    const secretaryModel = raw.secretary_model || '';
+    return {
+      base_url: '',
+      api_key: '',
+      ...raw,
+      analyst_model: analystModel,
+      executor_model: executorModel,
+      secretary_model: secretaryModel,
+    };
+  } catch (_) {
+    return { base_url: '', api_key: '', analyst_model: '', executor_model: '', secretary_model: '' };
+  }
+}
+
+function hasUserApiKey() {
+  return !!getApiSettings().api_key;
+}
+
+function requireUserApiKey() {
+  if (hasUserApiKey()) return true;
+  alert('Please go back to the home page and enter your own API key in Settings -> API Settings. This app does not use a site-owner API key. / 请回到首页设置自己的 API Key。');
+  return false;
+}
+
+async function loadHealth() {
+  try {
+    const baseHealth = await fetch('/api/health').then(r => r.json());
+    modelHealth = baseHealth;
+    const apiSettings = getApiSettings();
+    if (apiSettings.api_key) {
+      try {
+        const resp = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base_url: apiSettings.base_url, api_key: apiSettings.api_key }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || resp.statusText);
+        const available = data.models || [];
+        const defaultModels = {
+          analyst: apiSettings.analyst_model || baseHealth.default_models?.analyst || '',
+          executor: apiSettings.executor_model || baseHealth.default_models?.executor || '',
+          secretary: apiSettings.secretary_model || '',
+        };
+        modelHealth = {
+          ...baseHealth,
+          available_models: available,
+          default_models: defaultModels,
+          missing_default_models: Object.values(defaultModels).filter(model => model && !available.includes(model)),
+          models_error: '',
+        };
+      } catch (e) {
+        modelHealth = { ...baseHealth, available_models: null, missing_default_models: [], models_error: e.message };
+      }
+    }
+    showModelHealthWarning();
+  } catch (e) {
+    modelHealth = { available_models: null, missing_default_models: [], models_error: e.message };
+  }
+}
+
+function showModelHealthWarning() {
+  const missing = modelHealth.missing_default_models || [];
+  if (!missing.length || !window.pL || !window.pR) return;
+  const suffix = modelHealth.models_error ? ` (failed to fetch model list: ${modelHealth.models_error})` : '';
+  const msg = `⚠️ Default model unavailable / 默认模型不可用：${missing.join('、')}${suffix}`;
+  pL.setStatus(msg, 'error');
+  pR.setStatus(msg, 'error');
+}
+
+function isRoleModelUnavailable(short) {
+  const available = modelHealth.available_models;
+  if (!Array.isArray(available)) return false;
+  const role = allRoles.find(r => r.short === short);
+  if (!role || role.custom || !role.model) return false;
+  return !available.includes(role.model);
+}
+
+function getUnavailableRoleMessages(shorts) {
+  return shorts
+    .map(short => allRoles.find(r => r.short === short))
+    .filter(role => role && isRoleModelUnavailable(role.short))
+    .map(role => `${role.icon || '🤖'} ${role.name}：${role.model}`);
+}
+
+function roleOptionLabel(role) {
+  const suffix = isRoleModelUnavailable(role.short) ? ` · 模型不可用：${role.model}` : '';
+  return `${role.icon} ${role.name}${suffix}`;
+}
+
+function normalizeRoleShort(value) {
+  const slug = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 36);
+  return `custom-${slug || Date.now().toString(36)}`;
+}
+
+function getCustomRoles() {
+  try {
+    const roles = JSON.parse(localStorage.getItem(CUSTOM_ROLES_KEY) || '[]');
+    return Array.isArray(roles) ? roles.filter(r => r && r.short && r.model && r.body) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveCustomRoles(roles) {
+  localStorage.setItem(CUSTOM_ROLES_KEY, JSON.stringify(roles));
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function mergeCustomRoles(baseRoles) {
+  const seen = new Set(baseRoles.map(r => r.short));
+  const custom = getCustomRoles().filter(r => !seen.has(r.short));
+  return [...baseRoles, ...custom];
+}
+
+function fillCustomRoleForm(role = null) {
+  customRoleEditingShort = role?.short || '';
+  document.getElementById('custom-role-title').textContent = role ? '🧩 Edit Custom Agent / 编辑自定义角色' : '🧩 Custom Agent and Model / 自定义角色和模型';
+  document.getElementById('custom-role-save-btn').textContent = role ? 'Save changes / 保存修改' : 'Save and select / 保存并选择';
+  document.getElementById('custom-role-name').value = role?.name || '';
+  document.getElementById('custom-role-icon').value = role?.icon || '🧩';
+  document.getElementById('custom-role-base-url').value = role?.base_url || 'https://api.openai.com/v1';
+  document.getElementById('custom-role-api-key').value = role?.api_key || '';
+  document.getElementById('custom-role-model-select').innerHTML = '<option value="">Fetch models first, or type manually / 先拉取模型，或直接手动输入</option>';
+  document.getElementById('custom-role-model').value = role?.model || 'gpt-4.1';
+  document.getElementById('custom-role-subtitle').value = role?.subtitle || '自定义';
+  document.getElementById('custom-role-body').value = role?.body || '';
+  updateCustomReasoningOptions();
+  if (role?.reasoning) document.getElementById('custom-role-reasoning').value = role.reasoning;
+}
+
+function showCustomRoleModal(panel = _activePanel || pL, role = null, side = 'a') {
+  customRoleTargetPanel = panel;
+  customRoleTargetSide = side;
+  fillCustomRoleForm(role);
+  renderCustomRoleList();
+  document.getElementById('custom-role-modal').classList.add('visible');
+  document.getElementById('custom-role-name').focus();
+}
+
+function hideCustomRoleModal() {
+  document.getElementById('custom-role-modal').classList.remove('visible');
+  customRoleEditingShort = '';
+}
+
+async function roleForPanelSettings(panel, side) {
+  const selectId = side === 'c' ? 'role-c-select' : (side === 'b' ? 'role-b-select' : 'role-a-select');
+  const short = panel.$(selectId).value;
+  const role = allRoles.find(r => r.short === short);
+  if (!role) return null;
+  if (role.custom) return role;
+  try {
+    const resp = await fetch(`/api/role/${short}`);
+    if (!resp.ok) throw new Error(resp.statusText);
+    const data = await resp.json();
+    return {
+      ...role,
+      name: `${role.name}（自定义）`,
+      short: '',
+      body: data.body || '',
+      custom: false,
+    };
+  } catch (e) {
+    alert('Failed to load role prompt / 角色 prompt 加载失败：' + e.message);
+    return null;
+  }
+}
+
+async function openPanelRoleSettings(panel = _activePanel || pL, side = 'a') {
+  const role = await roleForPanelSettings(panel, side);
+  if (!role) return;
+  showCustomRoleModal(panel, role, side);
+}
+
+function renderCustomRoleList() {
+  const list = document.getElementById('custom-role-list');
+  const roles = getCustomRoles();
+  if (!roles.length) {
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = roles.map(r => `
+    <div class="custom-role-item">
+      <span>${escHtml(r.icon || '🧩')} ${escHtml(r.name)} · ${escHtml(r.model)} · ${escHtml(reasoningLabel(r.reasoning))}</span>
+      <div class="custom-role-actions">
+        <button class="btn-stage neutral" onclick="editCustomRole('${escHtml(r.short)}')">编辑</button>
+        <button class="btn-stage neutral" onclick="deleteCustomRole('${escHtml(r.short)}')">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editCustomRole(short) {
+  const role = getCustomRoles().find(r => r.short === short);
+  if (!role) return;
+  fillCustomRoleForm(role);
+}
+
+async function deleteCustomRole(short) {
+  saveCustomRoles(getCustomRoles().filter(r => r.short !== short));
+  if (customRoleEditingShort === short) fillCustomRoleForm(null);
+  renderCustomRoleList();
+  await loadRoles();
+}
+
+function selectCustomRoleModel() {
+  const val = document.getElementById('custom-role-model-select').value;
+  if (val) document.getElementById('custom-role-model').value = val;
+  updateCustomReasoningOptions();
+}
+
+function reasoningLabel(value) {
+  return ({ xhigh: '推理最高', high: '推理强', medium: '推理默认', low: '推理弱' })[value] || '推理默认';
+}
+
+function inferReasoningOptions(model) {
+  const id = String(model || '').toLowerCase();
+  if (id.includes('gpt-image') || id.includes('image') || id.includes('embedding')) {
+    return {
+      note: '当前模型看起来不是对话推理模型，建议保持默认。',
+      options: [{ value: 'medium', label: '默认' }],
+    };
+  }
+  if (id.includes('gpt-5') || id.includes('codex')) {
+    return {
+      note: '已按高阶推理模型推断：支持最高、强、默认、弱。',
+      options: [
+        { value: 'xhigh', label: '最高' },
+        { value: 'high', label: '强' },
+        { value: 'medium', label: '默认' },
+        { value: 'low', label: '弱' },
+      ],
+    };
+  }
+  if (/^o\\d|^o-|reason/.test(id)) {
+    return {
+      note: '已按推理模型推断：支持强、默认、弱。',
+      options: [
+        { value: 'high', label: '强' },
+        { value: 'medium', label: '默认' },
+        { value: 'low', label: '弱' },
+      ],
+    };
+  }
+  if (id.includes('claude')) {
+    return {
+      note: '该模型通常不支持最高推理档，按强、默认、弱处理。',
+      options: [
+        { value: 'high', label: '强' },
+        { value: 'medium', label: '默认' },
+        { value: 'low', label: '弱' },
+      ],
+    };
+  }
+  return {
+    note: '未知模型，保守提供默认和弱；需要更深推理可手动换支持推理档的模型。',
+    options: [
+      { value: 'medium', label: '默认' },
+      { value: 'low', label: '弱' },
+    ],
+  };
+}
+
+function updateCustomReasoningOptions() {
+  const sel = document.getElementById('custom-role-reasoning');
+  const meta = document.getElementById('custom-role-reasoning-meta');
+  const current = sel.value || 'medium';
+  const inferred = inferReasoningOptions(document.getElementById('custom-role-model').value);
+  sel.innerHTML = inferred.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
+  sel.value = inferred.options.some(opt => opt.value === current) ? current : (inferred.options.find(opt => opt.value === 'medium')?.value || inferred.options[0].value);
+  meta.textContent = inferred.note;
+}
+
+async function loadCustomRoleModels() {
+  const btn = typeof event !== 'undefined' ? event.target : null;
+  const sel = document.getElementById('custom-role-model-select');
+  const baseUrl = document.getElementById('custom-role-base-url').value.trim();
+  const apiKey = document.getElementById('custom-role-api-key').value.trim();
+  if (btn) btn.disabled = true;
+  if (btn) btn.textContent = 'Loading / 拉取中';
+  try {
+    const resp = await fetch('/api/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_url: baseUrl, api_key: apiKey }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || resp.statusText);
+    const models = data.models || [];
+    sel.innerHTML = '<option value="">Select model / 选择模型</option>' + models.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+    if (models.length) {
+      sel.value = models.includes(document.getElementById('custom-role-model').value) ? document.getElementById('custom-role-model').value : models[0];
+      selectCustomRoleModel();
+    }
+  } catch (e) {
+    alert('Failed to fetch model list / 模型列表拉取失败：' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btn) btn.textContent = 'Fetch models / 拉取模型';
+  }
+}
+
+async function saveCustomRole() {
+  const name = document.getElementById('custom-role-name').value.trim();
+  const icon = document.getElementById('custom-role-icon').value.trim() || '🧩';
+  const baseUrl = document.getElementById('custom-role-base-url').value.trim();
+  const apiKey = document.getElementById('custom-role-api-key').value.trim();
+  const model = document.getElementById('custom-role-model').value.trim();
+  const reasoning = document.getElementById('custom-role-reasoning').value;
+  const subtitle = document.getElementById('custom-role-subtitle').value.trim() || '自定义';
+  const body = document.getElementById('custom-role-body').value.trim();
+  if (!name || !model || !body) {
+    alert('Agent name, model ID, and role prompt are required. / 角色名、模型 ID、角色 prompt 都必填。');
+    return;
+  }
+  const short = customRoleEditingShort || normalizeRoleShort(`${name}-${Date.now().toString(36)}`);
+  const role = {
+    file: short,
+    short,
+    name,
+    icon,
+    model,
+    base_url: baseUrl,
+    api_key: apiKey,
+    reasoning,
+    subtitle,
+    color: 'purple',
+    tags: '自定义',
+    body,
+    custom: true,
+  };
+  const existing = getCustomRoles().filter(r => r.short !== short);
+  saveCustomRoles([...existing, role]);
+  hideCustomRoleModal();
+  await loadRoles(short, customRoleTargetPanel || _activePanel || pL, customRoleTargetSide);
+}
+
+// ── Inject panel HTML (must be first) ──────────────────────────────────────
+document.getElementById('pane-L').innerHTML = MAIN_PANEL_HTML
+  .replaceAll('__SUFFIX__', '_L')
+  .replaceAll('__PVAR__', 'pL');
+document.getElementById('pane-R').innerHTML = MAIN_PANEL_HTML
+  .replaceAll('__SUFFIX__', '_R')
+  .replaceAll('__PVAR__', 'pR');
+
+// ── Panel instances ─────────────────────────────────────────────────────────
+window.pL = new YuanPanel('L');
+window.pR = new YuanPanel('R');
+_activePanel = pL;
+
+function paneName(panel) {
+  return panel === pR ? 'Right panel / 右面板' : 'Left panel / 左面板';
+}
+
+function addPaneEmpty(panel) {
+  panel._initDom();
+  if (panel.chatLog.querySelector('.dual-empty')) return;
+  panel.chatLog.insertAdjacentHTML('beforeend', `
+    <div class="dual-empty">
+      <div class="dual-empty-title">${paneName(panel)} ready / 已就绪</div>
+      <div>Click an input to make it active. History buttons load resumed sessions into the chosen panel. / 点击输入框让它成为活跃面板。</div>
+      <div style="margin-top:10px"><span class="dual-empty-kbd">Cmd/Ctrl + Enter</span> Start active panel / 开始活跃面板</div>
+    </div>
+  `);
+}
+
+function removePaneEmpty(panel) {
+  panel._initDom();
+  panel.chatLog.querySelector('.dual-empty')?.remove();
+}
+
+[pL, pR].forEach(panel => {
+  const originalStart = panel.startRound.bind(panel);
+  panel.startRound = async function() {
+    removePaneEmpty(panel);
+    _activePanel = panel;
+    return originalStart();
+  };
+  const originalNewTopic = panel.newTopic.bind(panel);
+  panel.newTopic = async function() {
+    await originalNewTopic();
+    addPaneEmpty(panel);
+  };
+  const originalResume = panel.resumeTopic.bind(panel);
+  panel.resumeTopic = function(entry, idx) {
+    removePaneEmpty(panel);
+    _activePanel = panel;
+    return originalResume(entry, idx);
+  };
+  addPaneEmpty(panel);
+});
+
+// ── Per-panel textarea event listeners ─────────────────────────────────────
+[pL, pR].forEach(panel => {
+  panel._initDom();
+  panel.ta.addEventListener('focus', () => {
+    _activePanel = panel;
+    document.body.classList.toggle('active-right', panel === pR);
+  });
+  panel.ta.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 110) + 'px';
+  });
+  panel.ta.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); panel.startRound(); }
+  });
+  panel.ta.addEventListener('dragover', e => { e.preventDefault(); panel.ta.style.borderColor = 'var(--gold)'; });
+  panel.ta.addEventListener('dragleave', () => { panel.ta.style.borderColor = ''; });
+  panel.ta.addEventListener('drop', async e => {
+    e.preventDefault();
+    panel.ta.style.borderColor = '';
+    if (e.dataTransfer.files.length) await panel.handleFiles(e.dataTransfer.files);
+  });
+});
+
+// ── Load roles (populates both panels) ─────────────────────────────────────
+async function loadRoles(selectShort = '', targetPanel = null, targetSide = 'a') {
+  try {
+    allRoles = mergeCustomRoles(await fetch('/api/roles').then(r => r.json()));
+    [pL, pR].forEach(panel => {
+      const selA = panel.$('role-a-select');
+      const selB = panel.$('role-b-select');
+      const selC = panel.$('role-c-select');
+      const prevA = selA.value;
+      const prevB = selB.value;
+      const prevC = selC.value;
+      selA.innerHTML = '';
+      selB.innerHTML = '';
+      selC.innerHTML = '<option value="">无第三辩手</option>';
+      allRoles.forEach((r, i) => {
+        const optA = document.createElement('option');
+        optA.value = r.short;
+        optA.textContent = roleOptionLabel(r);
+        optA.dataset.subtitle = r.subtitle || '';
+        optA.dataset.tags = r.tags || '';
+        if (r.short === prevA || (!prevA && i === 0)) optA.selected = true;
+        selA.appendChild(optA);
+        const optB = document.createElement('option');
+        optB.value = r.short;
+        optB.textContent = roleOptionLabel(r);
+        optB.dataset.subtitle = r.subtitle || '';
+        optB.dataset.tags = r.tags || '';
+        if (r.short === prevB || (!prevB && i === 1)) optB.selected = true;
+        selB.appendChild(optB);
+        const optC = document.createElement('option');
+        optC.value = r.short;
+        optC.textContent = roleOptionLabel(r);
+        optC.dataset.subtitle = r.subtitle || '';
+        optC.dataset.tags = r.tags || '';
+        if (r.short === prevC) optC.selected = true;
+        selC.appendChild(optC);
+      });
+      selA.onchange = () => panel.updateHeaderFromSelects();
+      selB.onchange = () => panel.updateHeaderFromSelects();
+      selC.onchange = () => panel.updateHeaderFromSelects();
+      panel.updateHeaderFromSelects();
+    });
+    if (selectShort) {
+      const panel = targetPanel || _activePanel || pL;
+      const targetSelect = panel.$(targetSide === 'c' ? 'role-c-select' : (targetSide === 'b' ? 'role-b-select' : 'role-a-select'));
+      if ([...targetSelect.options].some(opt => opt.value === selectShort)) {
+        targetSelect.value = selectShort;
+        panel.updateHeaderFromSelects();
+      }
+    }
+  } catch(e) { console.warn('loadRoles failed', e); }
+}
+
+// ── History & sidebar ───────────────────────────────────────────────────────
+async function loadHistory() {
+  try {
+    historyData = await fetch('/api/history').then(r => r.json());
+    renderSidebar(historyData);
+    rebuildTagFilter(historyData);
+  } catch(e) { console.warn('loadHistory failed', e); }
+}
+
+function rebuildTagFilter(data) {
+  const sel = document.getElementById('sb-tag-filter');
+  const cur = sel.value;
+  const tags = new Set();
+  data.forEach(e => (e.tags || []).forEach(t => tags.add(t)));
+  sel.innerHTML = '<option value="">All / 全部</option>';
+  [...tags].sort().forEach(tag => {
+    const opt = document.createElement('option');
+    opt.value = tag; opt.textContent = tag;
+    if (tag === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function filterSidebar() {
+  const kw = document.getElementById('sb-search').value.trim().toLowerCase();
+  const tag = document.getElementById('sb-tag-filter').value;
+  const filtered = historyData.filter(e => {
+    if (tag && !(e.tags || []).includes(tag)) return false;
+    if (kw) {
+      const inTopic = (e.topic || '').toLowerCase().includes(kw);
+      const inHistory = (e.history || []).some(([, text]) => text.toLowerCase().includes(kw));
+      if (!inTopic && !inHistory) return false;
+    }
+    return true;
+  });
+  renderSidebar(filtered);
+}
+
+function renderSidebar(data) {
+  const list = document.getElementById('sb-list');
+  if (!data.length) { list.innerHTML = '<div class="sb-empty">No history yet / 暂无历史</div>'; return; }
+  list.innerHTML = '';
+  for (let i = data.length - 1; i >= 0; i--) {
+    const entry = data[i];
+    const realIdx = historyData.indexOf(entry);
+    const item = document.createElement('div');
+    item.className = 'sb-item';
+    const preview = (entry.topic || '').slice(0, 26);
+    const scores = entry.scores;
+    const scoreTag = scores ? `<span style="font-size:9px;color:var(--gold)">${scores.depth}/${scores.consensus}/${scores.execution}</span>` : '';
+    const tags = (entry.tags || []).map(t => `<span class="sb-tag-chip">${t}</span>`).join('');
+    const todoTotal = entry.todo_total || 0;
+    const todoStr = todoTotal > 0 ? `<span class="sb-todo-progress">${entry.todo_done||0}/${todoTotal} ✅</span>` : '';
+    const safeTopic = (entry.topic || '').replace(/"/g, '&quot;');
+    item.innerHTML = `
+      <div class="sb-item-topic">${preview} ${scoreTag}</div>
+      <div class="sb-item-meta">${tags}${todoStr}<span>${(entry.history||[]).length} 轮</span></div>
+      <div style="margin-top:5px;display:flex;align-items:center;gap:4px">
+        <button class="btn-resume" data-idx="${realIdx}" data-topic="${safeTopic}"
+          style="font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;
+                 background:rgba(30,107,74,.1);color:var(--c);cursor:pointer;font-family:inherit"
+          title="Resume into left panel / 续辩到左面板">🔄 Left</button>
+        <button class="btn-resume-r" data-idx="${realIdx}" data-topic="${safeTopic}"
+          style="font-size:10px;padding:2px 7px;border:1px solid var(--border);border-radius:4px;
+                 background:rgba(156,46,26,.1);color:var(--x);cursor:pointer;font-family:inherit"
+          title="Resume into right panel / 续辩到右面板">🔄 Right</button>
+        <button class="btn-del-topic" data-idx="${realIdx}" title="删除此议题">✕</button>
+      </div>`;
+    item.onclick = e => {
+      if (e.target.closest('.btn-resume,.btn-resume-r')) return;
+      showHistDetail(entry, realIdx);
+    };
+    list.appendChild(item);
+  }
+  list.querySelectorAll('.btn-resume').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      doResumeTopic(btn.dataset.topic, parseInt(btn.dataset.idx, 10), pL);
+    });
+  });
+  list.querySelectorAll('.btn-resume-r').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      doResumeTopic(btn.dataset.topic, parseInt(btn.dataset.idx, 10), pR);
+    });
+  });
+  list.querySelectorAll('.btn-del-topic').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx, 10);
+      const entry = historyData[idx];
+      if (!confirm(`删除「${(entry?.topic || '').slice(0, 20)}」？此操作不可撤销`)) return;
+      await fetch(`/api/history/${idx}`, { method: 'DELETE' });
+      await loadHistory();
+    });
+  });
+}
+
+function doResumeTopic(topic, idx, panel) {
+  const entry = historyData[idx] || topic;
+  panel.resumeTopic(entry, idx);
+  _activePanel = panel;
+}
+
+function showHistDetail(entry, realIdx) {
+  const roles = (_activePanel || pL).sessionRoles;
+  document.getElementById('hist-view-title').textContent = entry.topic;
+  const body = document.getElementById('hist-view-body');
+  body.innerHTML = '';
+  const tags = entry.tags || [];
+  if (tags.length) {
+    const tagRow = document.createElement('div');
+    tagRow.className = 'tags-row';
+    tagRow.style.marginBottom = '12px';
+    tags.forEach(t => { const c = document.createElement('span'); c.className = 'tag-chip'; c.textContent = t; tagRow.appendChild(c); });
+    body.appendChild(tagRow);
+  }
+  for (const [role, text] of entry.history) {
+    const isC = role === 'zhuge', isX = role === 'sima';
+    const isThird = role === 'third';
+    const cls = isC ? 'c' : (isX ? 'x' : (isThird ? 'm' : 'user'));
+    const name = isC ? `${roles.a.icon} ${roles.a.name}` : (isX ? `${roles.b.icon} ${roles.b.name}` : (isThird ? `${roles.c?.icon || '🔎'} ${roles.c?.name || '第三辩手'}` : '👤 USER'));
+    const wrap = document.createElement('div');
+    wrap.className = 'hist-turn';
+    wrap.innerHTML = `<div class="hist-turn-hd ${cls}">${name}</div><div class="hist-turn-body">${marked.parse(text)}</div>`;
+    body.appendChild(wrap);
+    pL._attachCodeCopyButtons(wrap);
+  }
+  if (entry.scores) {
+    const s = entry.scores;
+    const sd = document.createElement('div');
+    sd.className = 'score-card'; sd.style.margin = '14px 0 0';
+    sd.innerHTML = `<div class="score-card-title">本场评分</div>
+      <div class="score-row">
+        <div class="score-item">🧠 深度 <span class="score-num">${s.depth}/5</span></div>
+        <div class="score-item">🤝 共识 <span class="score-num">${s.consensus}/5</span></div>
+        <div class="score-item">⚡ 执行 <span class="score-num">${s.execution}/5</span></div>
+      </div><div class="score-comment">"${s.comment||''}"</div>`;
+    body.appendChild(sd);
+  }
+  const todos = entry.todos || [];
+  if (todos.length) {
+    const td = document.createElement('div');
+    td.className = 'hist-todos';
+    td.innerHTML = `<div class="hist-todos-title">📋 待办（${todos.filter(t=>t.status==='done').length}/${todos.length} 完成）</div>`;
+    todos.forEach((todo, j) => {
+      const item = document.createElement('div'); item.className = 'hist-todo-item';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.className = 'hist-todo-cb'; cb.checked = todo.status === 'done';
+      const textEl = document.createElement('span'); textEl.style.cssText = 'flex:1;font-size:12px;line-height:1.5';
+      if (todo.status === 'done') textEl.style.textDecoration = 'line-through';
+      textEl.textContent = todo.text;
+      cb.addEventListener('change', async () => {
+        const ns = cb.checked ? 'done' : 'pending';
+        try {
+          await fetch(`/api/todos/${realIdx}/${j}`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status:ns}) });
+          textEl.style.textDecoration = cb.checked ? 'line-through' : '';
+          loadHistory();
+        } catch(e) { cb.checked = !cb.checked; }
+      });
+      item.appendChild(cb); item.appendChild(textEl); td.appendChild(item);
+    });
+    body.appendChild(td);
+  }
+  document.getElementById('hist-view').classList.add('visible');
+}
+
+function closeHistView() {
+  document.getElementById('hist-view').classList.remove('visible');
+}
+
+// ── Extract modal ───────────────────────────────────────────────────────────
+function showExtractModal() {
+  document.getElementById('extract-modal').classList.add('visible');
+  document.getElementById('extract-topics').style.display = 'none';
+  document.getElementById('extract-topic-list').innerHTML = '';
+  document.getElementById('extract-input').value = '';
+  setTimeout(() => document.getElementById('extract-input').focus(), 100);
+}
+function hideExtractModal() {
+  document.getElementById('extract-modal').classList.remove('visible');
+}
+async function doExtract() {
+  const source = document.getElementById('extract-input').value.trim();
+  if (!source) return;
+  if (!requireUserApiKey()) return;
+  const topicList = document.getElementById('extract-topic-list');
+  const topicsArea = document.getElementById('extract-topics');
+  topicList.innerHTML = '<div class="modal-hint" style="color:var(--gold)">正在提取…</div>';
+  topicsArea.style.display = 'block';
+  try {
+    const resp = await fetch('/api/extract_topics', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({source, api_settings: getApiSettings()}) });
+    const data = await resp.json();
+    if (!resp.ok) { topicList.innerHTML = `<div style="color:var(--err);font-size:12px">${data.detail||'提取失败'}</div>`; return; }
+    topicList.innerHTML = '';
+    (data.topics || []).forEach((t, i) => {
+      const item = document.createElement('div');
+      item.className = 'modal-topic-item';
+      item.textContent = `${i+1}. ${t}`;
+      item.onclick = () => {
+        hideExtractModal();
+        const panel = _activePanel || pL;
+        panel._initDom();
+        panel.ta.value = t;
+        panel.ta.style.height = 'auto';
+        panel.ta.style.height = Math.min(panel.ta.scrollHeight, 110) + 'px';
+      };
+      topicList.appendChild(item);
+    });
+  } catch(e) { topicList.innerHTML = `<div style="color:var(--err);font-size:12px">Network error / 网络错误：${e.message}</div>`; }
+}
+document.getElementById('extract-modal').addEventListener('click', e => { if (e.target === e.currentTarget) hideExtractModal(); });
+document.getElementById('extract-input').addEventListener('keydown', e => { if (e.key === 'Enter') doExtract(); });
+
+// B3 角色 prompt 查看
+async function showRoleModal(short) {
+  const customRole = allRoles.find(r => r.short === short && r.custom);
+  if (customRole) {
+    document.getElementById('role-modal-title').textContent = `${customRole.icon} ${customRole.name} · ${customRole.model}`;
+    document.getElementById('role-modal-body').innerHTML = marked.parse(customRole.body || '_(空)_');
+    document.getElementById('role-modal').classList.add('visible');
+    return;
+  }
+  try {
+    const resp = await fetch(`/api/role/${short}`);
+    if (!resp.ok) { alert('Failed to load / 加载失败：' + resp.statusText); return; }
+    const data = await resp.json();
+    document.getElementById('role-modal-title').textContent = `${data.icon} ${data.name} · ${data.model}`;
+    document.getElementById('role-modal-body').innerHTML = marked.parse(data.body || '_(空)_');
+    document.getElementById('role-modal').classList.add('visible');
+  } catch (e) { alert('Network error / 网络错误：' + e.message); }
+}
+function hideRoleModal() {
+  document.getElementById('role-modal').classList.remove('visible');
+}
+document.getElementById('role-modal').addEventListener('click', e => { if (e.target === e.currentTarget) hideRoleModal(); });
+document.getElementById('custom-role-modal').addEventListener('click', e => { if (e.target === e.currentTarget) hideCustomRoleModal(); });
+
+// ── A4 全局键盘快捷键 ─────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  // Esc：取消当前辩论（活跃面板）
+  if (e.key === 'Escape' && _activePanel?.es) {
+    _activePanel.es.close(); _activePanel.es = null;
+    _activePanel.setStatus('Cancelled (Esc) / 已取消', 'error');
+    _activePanel.unlock();
+    return;
+  }
+  if (e.key === 'Escape') {
+    hideExtractModal();
+    hideRoleModal();
+    hideCustomRoleModal();
+  }
+  // / 聚焦 sidebar 搜索
+  if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) {
+    e.preventDefault();
+    document.getElementById('sb-search').focus();
+    return;
+  }
+  // Cmd/Ctrl+Enter：触发活跃面板开始
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    _activePanel?.startRound();
+  }
+});
+
+// ── Init ────────────────────────────────────────────────────────────────────
+loadHealth().finally(() => loadRoles());
+loadHistory();
+</script>
+</body>
+</html>

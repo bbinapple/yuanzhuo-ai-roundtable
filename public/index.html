@@ -1,0 +1,3370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>圆桌会议</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+:root {
+  --bg: #F9F9F7;
+  --surface: #ffffff;
+  --surface-2: #f1f4f8;
+  --surface-3: #e8edf4;
+  --border: #d9e0ea;
+  --border-strong: #c5cfdd;
+  --text: #111827;
+  --dim: #667085;
+  --muted: #98a2b3;
+  --gold: #5b63f1;
+  --accent: #4f46e5;
+  --accent-2: #3730a3;
+  --c: #07865f;
+  --c-dim: #e8f8f0;
+  --c-b: #9bd9bd;
+  --x: #c0344d;
+  --x-dim: #fff0f3;
+  --x-b: #f1a3b1;
+  --ok: #0f8f63;
+  --err: #c92f43;
+  --warn: #b45b05;
+  --warn-bg: #fff7ed;
+  --cyan: #05788a;
+  --cyan-b: #8bd6e2;
+  --cyan-dim: #e9f9fb;
+  --sidebar-w: 292px;
+  --topbar-h: 58px;
+  --shadow-sm: 0 1px 2px rgba(16,24,40,.06);
+  --shadow-md: 0 14px 40px rgba(16,24,40,.10);
+  --radius: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  overflow: hidden;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  font-size: 14px;
+}
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .52; }
+a { color: inherit; }
+
+.app {
+  height: 100vh;
+  width: 100vw;
+  max-width: 100vw;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+  background:
+    linear-gradient(135deg, rgba(79,70,229,.08), transparent 32%),
+    radial-gradient(circle at 90% 12%, rgba(7,134,95,.10), transparent 30%),
+    var(--bg);
+}
+.mode-simple .app { grid-template-columns: minmax(0, 1fr); }
+.mode-simple .sidebar { display: none; }
+
+.sidebar {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: rgba(255,255,255,.88);
+  backdrop-filter: blur(18px);
+}
+.sb-hd { padding: 16px; border-bottom: 1px solid var(--border); }
+.sb-hd-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.sb-title { font-size: 13px; font-weight: 750; letter-spacing: .02em; color: var(--text); }
+.btn-new-topic,
+.btn-back,
+.topbar-btn,
+.mode-tab,
+.btn-mini,
+.btn-resume,
+.btn-del-topic,
+.btn-stage {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--dim);
+  border-radius: 9px;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.btn-new-topic { padding: 6px 10px; font-size: 12px; font-weight: 650; }
+.btn-new-topic:hover,
+.topbar-btn:hover,
+.btn-mini:hover,
+.btn-back:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-2);
+}
+.sb-search-row { display: grid; grid-template-columns: 1fr 88px; gap: 8px; }
+.sb-search-input,
+.sb-tag-select,
+.header-role-select,
+.role-select,
+.template-select,
+.reasoning-select,
+.modal input[type=text],
+.irow textarea {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  border-radius: 10px;
+}
+.sb-search-input { min-width: 0; padding: 9px 10px; font-size: 13px; }
+.sb-tag-select { min-width: 0; padding: 9px 8px; font-size: 12px; cursor: pointer; }
+.sb-search-input:focus,
+.sb-tag-select:focus,
+.header-role-select:focus,
+.role-select:focus,
+.template-select:focus,
+.reasoning-select:focus,
+.modal input[type=text]:focus,
+.irow textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+}
+.sb-list { flex: 1; overflow-y: auto; padding: 10px; }
+.sb-list::-webkit-scrollbar,
+.chat::-webkit-scrollbar,
+.hist-view::-webkit-scrollbar { width: 6px; }
+.sb-list::-webkit-scrollbar-thumb,
+.chat::-webkit-scrollbar-thumb,
+.hist-view::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; }
+.sb-empty { padding: 28px 10px; color: var(--muted); text-align: center; font-size: 13px; }
+.sb-item {
+  padding: 11px 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.sb-item:hover { background: var(--surface-2); border-color: var(--border); }
+.sb-item-topic {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sb-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.sb-tag-chip,
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(79,70,229,.18);
+  background: rgba(79,70,229,.07);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 650;
+}
+.sb-todo-progress { color: var(--ok); }
+.btn-resume { padding: 5px 8px; font-size: 11px; color: var(--accent); }
+.btn-del-topic {
+  margin-left: auto;
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--err);
+  opacity: 0;
+}
+.sb-item:hover .btn-del-topic { opacity: 1; }
+
+.workspace {
+  min-width: 0;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+.topbar {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: var(--topbar-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.84);
+  backdrop-filter: blur(18px);
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 16px;
+  background: linear-gradient(135deg, var(--accent), #08a879);
+  box-shadow: 0 8px 24px rgba(79,70,229,.24);
+}
+.brand-title { font-weight: 780; font-size: 15px; }
+.brand-sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+.topbar-actions { display: flex; align-items: center; gap: 8px; }
+.mode-switch {
+  display: inline-flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.mode-tab {
+  border: 0;
+  background: transparent;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.mode-tab[aria-selected="true"] {
+  color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.topbar-btn { padding: 8px 10px; font-size: 13px; font-weight: 650; text-decoration: none; white-space: nowrap; }
+.theme-toggle-btn[aria-pressed="true"] {
+  color: #f8fbff;
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: var(--shadow-sm);
+}
+.settings-grid {
+  display: grid;
+  gap: 14px;
+}
+.settings-section {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.settings-section h4 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 800;
+}
+.settings-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.settings-field {
+  display: grid;
+  gap: 6px;
+}
+.settings-field label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.settings-field input[type=checkbox] {
+  accent-color: var(--accent);
+}
+.settings-action-card {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.settings-action-text {
+  min-width: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.settings-help {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.runtime-warning {
+  display: none;
+  margin: 14px 18px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(180,91,5,.18);
+  border-radius: 14px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.runtime-warning.visible { display: block; }
+.settings-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.template-editor-grid {
+  display: grid;
+  gap: 10px;
+}
+.template-editor-item {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.template-editor-item input {
+  margin-bottom: 8px !important;
+}
+.desktop-only { display: inline-flex; }
+body.theme-dark {
+  --bg: #0b1220;
+  --surface: #121b2b;
+  --surface-2: #182235;
+  --surface-3: #1d2940;
+  --border: #27344b;
+  --border-strong: #334564;
+  --text: #ecf2ff;
+  --dim: #b8c4d9;
+  --muted: #8ea1bd;
+  --gold: #8ea2ff;
+  --accent: #7c8cff;
+  --accent-2: #5968f4;
+  --c: #33c58f;
+  --c-dim: #102a26;
+  --c-b: #1f6752;
+  --x: #ff7a94;
+  --x-dim: #30171f;
+  --x-b: #6d3341;
+  --ok: #4fd39f;
+  --err: #ff8ba0;
+  --warn: #f3bf62;
+  --warn-bg: #2d2412;
+  --cyan: #59c8d9;
+  --cyan-b: #316d79;
+  --cyan-dim: #10232b;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,.28);
+  --shadow-md: 0 24px 56px rgba(0,0,0,.42);
+}
+body.theme-dark {
+  background:
+    radial-gradient(circle at 18% 12%, rgba(124,140,255,.12), transparent 22%),
+    radial-gradient(circle at 88% 10%, rgba(89,200,217,.10), transparent 24%),
+    linear-gradient(180deg, #0b1220, #0c1526);
+}
+body.theme-dark .app {
+  background:
+    radial-gradient(circle at 12% 10%, rgba(124,140,255,.08), transparent 22%),
+    radial-gradient(circle at 88% 14%, rgba(89,200,217,.06), transparent 26%),
+    linear-gradient(180deg, #0b1220 0%, #0d1729 100%);
+}
+body.theme-dark .workspace,
+body.theme-dark .content,
+body.theme-dark .panel-stage,
+body.theme-dark #main-host,
+body.theme-dark .main,
+body.theme-dark .hero {
+  background:
+    radial-gradient(circle at 18% 14%, rgba(124,140,255,.06), transparent 24%),
+    radial-gradient(circle at 84% 18%, rgba(89,200,217,.05), transparent 28%),
+    linear-gradient(180deg, #0c1424 0%, #0d1728 100%);
+}
+body.theme-dark .sidebar,
+body.theme-dark .topbar,
+body.theme-dark .hd,
+body.theme-dark .bot,
+body.theme-dark .modal,
+body.theme-dark .hist-view,
+body.theme-dark .research-panel,
+body.theme-dark .sec-panel,
+body.theme-dark .todos-panel,
+body.theme-dark .score-card,
+body.theme-dark .ask-user {
+  background: rgba(10, 16, 30, 0.88);
+  backdrop-filter: blur(18px);
+}
+body.theme-dark .hero-input,
+body.theme-dark .topic-card,
+body.theme-dark .pill,
+body.theme-dark .b,
+body.theme-dark .hist-turn,
+body.theme-dark .hist-todos,
+body.theme-dark .tool-row,
+body.theme-dark .btn-copy,
+body.theme-dark .btn-toggle,
+body.theme-dark .btn-regen {
+  background: rgba(15, 23, 42, 0.86);
+}
+body.theme-dark .chat {
+  background:
+    radial-gradient(circle at 18% 24%, rgba(51,197,143,.06), transparent 28%),
+    radial-gradient(circle at 82% 68%, rgba(124,140,255,.08), transparent 30%),
+    linear-gradient(180deg, rgba(12,20,36,.86), rgba(9,14,26,.96));
+}
+body.theme-dark .hero-kicker,
+body.theme-dark .hero-preheat,
+body.theme-dark .adj,
+body.theme-dark .pill.info,
+body.theme-dark .btn-export,
+body.theme-dark .modal-topic-item:hover,
+body.theme-dark .btn-attach:hover,
+body.theme-dark .btn-extract:hover,
+body.theme-dark .btn-pause:hover:not(:disabled),
+body.theme-dark .btn-role-settings:hover {
+  background: rgba(124,140,255,.14);
+}
+body.theme-dark .hero-start,
+body.theme-dark .btn,
+body.theme-dark .btn-stage.primary,
+body.theme-dark .mode-tab[aria-selected="true"],
+body.theme-dark .hero-preheat[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #f8fbff;
+}
+body.theme-dark .mode-switch,
+body.theme-dark .topbar-btn,
+body.theme-dark .btn-new-topic,
+body.theme-dark .btn-back,
+body.theme-dark .btn-mini,
+body.theme-dark .btn-stage.neutral,
+body.theme-dark .btn-resume,
+body.theme-dark .btn-del-topic,
+body.theme-dark .btn-role-settings,
+body.theme-dark .btn-pause,
+body.theme-dark .btn-attach,
+body.theme-dark .btn-extract,
+body.theme-dark .topic-card,
+body.theme-dark .hero-input,
+body.theme-dark .sb-item,
+body.theme-dark .settings-section,
+body.theme-dark .settings-action-card,
+body.theme-dark .hist-turn,
+body.theme-dark .hist-todos,
+body.theme-dark .modal input[type=text],
+body.theme-dark .modal input[type=password],
+body.theme-dark .modal select,
+body.theme-dark .modal textarea,
+body.theme-dark .sb-search-input,
+body.theme-dark .sb-tag-select,
+body.theme-dark .header-role-select,
+body.theme-dark .role-select,
+body.theme-dark .template-select,
+body.theme-dark .reasoning-select,
+body.theme-dark .irow textarea {
+  border-color: var(--border);
+  color: var(--text);
+}
+body.theme-dark .sb-item,
+body.theme-dark .settings-section,
+body.theme-dark .settings-action-card,
+body.theme-dark .topic-card,
+body.theme-dark .hist-turn,
+body.theme-dark .hist-todos {
+  box-shadow: 0 10px 24px rgba(0,0,0,.18);
+}
+body.theme-dark .hero-input,
+body.theme-dark .irow textarea {
+  background: rgba(12, 19, 34, 0.96);
+}
+body.theme-dark .irow textarea::placeholder,
+body.theme-dark .hero-input input::placeholder,
+body.theme-dark .sb-search-input::placeholder {
+  color: #7f92b0;
+}
+body.theme-dark .btn-attach,
+body.theme-dark .btn-extract,
+body.theme-dark .btn-pause,
+body.theme-dark .btn-mini,
+body.theme-dark .topbar-btn,
+body.theme-dark .btn-new-topic,
+body.theme-dark .btn-back,
+body.theme-dark .btn-role-settings,
+body.theme-dark .btn-stage.neutral,
+body.theme-dark .btn-resume,
+body.theme-dark .btn-del-topic {
+  background: #121b2b;
+}
+body.theme-dark .topbar,
+body.theme-dark .sidebar,
+body.theme-dark .hd,
+body.theme-dark .bot {
+  box-shadow: inset 0 -1px 0 rgba(255,255,255,.03);
+}
+body.theme-dark .mode-switch {
+  background: rgba(12, 19, 34, 0.88);
+}
+body.theme-dark .mode-tab {
+  color: var(--dim);
+}
+body.theme-dark .mode-tab[aria-selected="true"] {
+  box-shadow: 0 6px 18px rgba(89,104,244,.24);
+}
+body.theme-dark .hero-input,
+body.theme-dark .topic-card,
+body.theme-dark .tool-row,
+body.theme-dark .pill,
+body.theme-dark .research-panel,
+body.theme-dark .sec-panel,
+body.theme-dark .todos-panel,
+body.theme-dark .score-card,
+body.theme-dark .ask-user {
+  box-shadow: 0 18px 40px rgba(0,0,0,.22);
+}
+body.theme-dark .hero h1,
+body.theme-dark .empty-state-title,
+body.theme-dark .brand-title {
+  color: #f3f7ff;
+}
+body.theme-dark .hero-sub,
+body.theme-dark .empty-state-body {
+  color: #aab7cf;
+}
+body.theme-dark .hero-kicker {
+  border-color: rgba(124,140,255,.22);
+}
+body.theme-dark .sidebar {
+  background: rgba(9, 14, 26, 0.94);
+}
+body.theme-dark .topbar {
+  background: rgba(10, 16, 30, 0.90);
+}
+body.theme-dark .bot {
+  background: rgba(10, 16, 30, 0.94);
+}
+body.theme-dark .hist-view {
+  background:
+    linear-gradient(180deg, rgba(8,13,24,.98), rgba(9,14,26,.98));
+}
+body.theme-dark .hero-sub,
+body.theme-dark .empty-state,
+body.theme-dark .settings-help,
+body.theme-dark .hero-note,
+body.theme-dark .ml-meta,
+body.theme-dark .tool-row,
+body.theme-dark .moderator-strip,
+body.theme-dark .research-label,
+body.theme-dark .sec-label,
+body.theme-dark .todos-label,
+body.theme-dark .score-card-title,
+body.theme-dark .ask-user-label {
+  color: var(--dim);
+}
+body.theme-dark .brand-sub,
+body.theme-dark .role-label,
+body.theme-dark .ft,
+body.theme-dark .sb-item-meta,
+body.theme-dark .topic-label,
+body.theme-dark .settings-field label {
+  color: var(--muted);
+}
+body.theme-dark .sb-item:hover,
+body.theme-dark .settings-section,
+body.theme-dark .topic-card:hover,
+body.theme-dark .topbar-btn:hover,
+body.theme-dark .btn-new-topic:hover,
+body.theme-dark .btn-mini:hover,
+body.theme-dark .btn-back:hover {
+  background: rgba(24,34,53,.96);
+}
+body.theme-dark .b.c {
+  background: linear-gradient(135deg, rgba(16,42,38,.96), rgba(16,24,38,.94));
+}
+body.theme-dark .b.x {
+  background: linear-gradient(225deg, rgba(48,23,31,.95), rgba(16,24,38,.94));
+}
+body.theme-dark .b.m {
+  background: linear-gradient(135deg, rgba(45,36,18,.94), rgba(16,24,38,.94));
+  border-color: #6a5527;
+}
+body.theme-dark .b.user-msg {
+  background: rgba(35,44,74,.92);
+  border-color: rgba(124,140,255,.24);
+}
+body.theme-dark .b.collapsed::after {
+  background: linear-gradient(transparent, rgba(15,23,42,.98));
+}
+body.theme-dark .b code {
+  background: rgba(148,163,184,.12);
+  color: #d6def0;
+}
+body.theme-dark .b pre {
+  background: #0a101d;
+  border-color: #1f2b41;
+}
+body.theme-dark .research-panel {
+  border-left-color: var(--cyan);
+  background: rgba(16,35,43,.92);
+}
+body.theme-dark .sec-panel {
+  border-left-color: var(--accent);
+}
+body.theme-dark .tool-row.calling,
+body.theme-dark .moderator-strip {
+  background: rgba(45,36,18,.94);
+  color: var(--warn);
+}
+body.theme-dark .pill.done {
+  background: rgba(16,42,38,.96);
+}
+body.theme-dark .pill.error {
+  background: rgba(48,23,31,.96);
+}
+body.theme-dark .hist-view {
+  background: rgba(8, 13, 24, 0.98);
+}
+body.theme-dark .sidebar-scrim.open,
+body.theme-dark .modal-overlay {
+  background: rgba(3, 7, 18, 0.62);
+}
+body.theme-dark .brand-mark {
+  box-shadow: 0 10px 28px rgba(89,104,244,.24);
+}
+body.theme-dark .empty-state-title,
+body.theme-dark .brand-title,
+body.theme-dark .sb-title,
+body.theme-dark .hist-view-hd h2,
+body.theme-dark .score-num {
+  color: var(--text);
+}
+body.theme-dark .hist-turn-hd {
+  background: rgba(24,34,53,.96);
+}
+body.theme-dark .hist-turn-hd.c { color: var(--c); }
+body.theme-dark .hist-turn-hd.x { color: var(--x); }
+body.theme-dark .hist-turn-hd.m { color: #f3bf62; }
+body.theme-dark .hist-turn-hd.user { color: var(--accent); }
+body.theme-dark .hero h1,
+body.theme-dark .empty-state-title {
+  text-shadow: 0 6px 18px rgba(0,0,0,.24);
+}
+
+.content {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.hero {
+  flex: 1;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 20px 54px;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+.mode-simple .hero.is-home { display: flex; }
+.hero-inner {
+  width: min(900px, 100%);
+  text-align: center;
+  min-width: 0;
+}
+.hero-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid rgba(79,70,229,.18);
+  border-radius: 999px;
+  background: rgba(79,70,229,.08);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 750;
+  margin-bottom: 18px;
+}
+.hero h1 {
+  font-size: clamp(34px, 5vw, 56px);
+  line-height: 1.08;
+  letter-spacing: 0;
+  margin-bottom: 14px;
+  overflow-wrap: anywhere;
+}
+.hero-sub {
+  max-width: 560px;
+  margin: 0 auto 28px;
+  color: var(--dim);
+  font-size: 16px;
+  line-height: 1.7;
+}
+.hero-input {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.92);
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+}
+.hero-input input {
+  min-width: 0;
+  height: 50px;
+  border: 0;
+  outline: none;
+  padding: 0 12px;
+  color: var(--text);
+  background: transparent;
+  font-size: 16px;
+}
+.hero-start {
+  height: 50px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: 13px;
+  color: #fff;
+  font-weight: 780;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 10px 20px rgba(79,70,229,.24);
+}
+.hero-preheat {
+  height: 50px;
+  padding: 0 18px;
+  border: 1px solid rgba(79,70,229,.18);
+  border-radius: 13px;
+  color: var(--accent);
+  font-weight: 760;
+  background: rgba(79,70,229,.08);
+}
+.hero-preheat[aria-pressed="true"] {
+  color: #fff;
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 10px 20px rgba(79,70,229,.18);
+}
+.hero-start:hover { transform: translateY(-1px); }
+.hero-preheat:hover { transform: translateY(-1px); background: rgba(79,70,229,.14); }
+.hero-preheat[aria-pressed="true"]:hover { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+.hero-note {
+  width: min(760px, 100%);
+  margin: 10px auto 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+}
+.topic-label { margin: 22px 0 11px; color: var(--muted); font-size: 12px; font-weight: 650; }
+.topic-grid {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.topic-card {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255,255,255,.88);
+  color: var(--dim);
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, color .16s ease;
+}
+.topic-card:hover { transform: translateY(-2px); border-color: var(--accent); color: var(--text); box-shadow: var(--shadow-md); }
+
+.panel-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.mode-simple .panel-stage.is-home { display: none; }
+#main-host {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.mode-simple .main {
+  width: min(980px, 100%);
+  margin: 0 auto;
+}
+.hd {
+  min-width: 0;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.72);
+}
+.mode-simple .hd { display: none; }
+.fp { padding: 12px 18px; display: flex; flex-direction: column; gap: 4px; min-width: 0; overflow: hidden; }
+.fp.cl { border-right: 1px solid var(--border); }
+.fp.bx { border-right: 1px solid var(--border); }
+.fp.cx { border-right: 0; }
+.fn { display: flex; align-items: center; gap: 8px; font-weight: 760; font-size: 14px; }
+.btn-role-settings {
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-role-settings:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(79,70,229,.06);
+}
+.dot { width: 7px; height: 7px; border-radius: 99px; background: var(--border-strong); transition: background .2s ease, box-shadow .2s ease; }
+.dot.c.active { background: var(--c); box-shadow: 0 0 0 5px rgba(7,134,95,.12); }
+.dot.x.active { background: var(--x); box-shadow: 0 0 0 5px rgba(192,52,77,.12); }
+.dot.m.active { background: #ea580c; box-shadow: 0 0 0 5px rgba(234,88,12,.12); }
+.ft { color: var(--muted); font-size: 11px; font-weight: 700; }
+.fp.cl .ft { color: var(--c); }
+.fp.bx .ft { color: var(--x); }
+.fp.cx .ft { color: #ea580c; }
+.header-role-select {
+  min-width: 0;
+  max-width: 220px;
+  flex: 1;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 760;
+  outline: none;
+}
+.header-role-select:hover {
+  background: var(--surface-2);
+}
+.header-role-name {
+  display: none;
+}
+.b.m { background: linear-gradient(135deg, #fff7ed, #fff); border-color: #fed7aa; border-left: 4px solid #ea580c; border-radius: 4px 16px 16px 16px; }
+.ml-name.m { color: #c2410c; }
+.hc { display: none; }
+.htitle { color: var(--accent); font-size: 13px; font-weight: 800; letter-spacing: .02em; }
+
+.chat {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 22px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.82), rgba(249,249,247,.76)),
+    radial-gradient(circle at 18% 24%, rgba(7,134,95,.08), transparent 28%),
+    radial-gradient(circle at 82% 68%, rgba(192,52,77,.07), transparent 32%);
+}
+.mode-simple .chat {
+  width: min(820px, 100%);
+  align-self: center;
+  padding-inline: 20px;
+}
+.empty-state {
+  margin: auto;
+  width: min(520px, 100%);
+  text-align: center;
+  color: var(--dim);
+}
+.empty-state-title {
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+.empty-state-body {
+  line-height: 1.7;
+  font-size: 14px;
+}
+.pill {
+  align-self: center;
+  display: none;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--dim);
+  font-size: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.pill.info { border-color: rgba(79,70,229,.22); color: var(--accent); background: rgba(79,70,229,.08); }
+.pill.done { border-color: rgba(7,134,95,.20); color: var(--ok); background: var(--c-dim); }
+.pill.error { border-color: rgba(201,47,67,.22); color: var(--err); background: var(--x-dim); }
+.sep { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; padding: 12px 0 4px; }
+.sep::before, .sep::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.sep span {
+  max-width: min(760px, 80%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.mr { display: flex; flex-direction: column; margin: 8px 0; animation: fadeUp .22s ease-out; }
+.mr.r { align-items: flex-end; }
+.ml { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+.mr.r .ml { flex-direction: row-reverse; }
+.ml-name { font-weight: 760; }
+.ml-name.c { color: var(--c); }
+.ml-name.x { color: var(--x); }
+.ml-name.user { color: var(--accent); }
+.ml-meta { color: var(--muted); font-size: 11px; }
+.bw { max-width: min(780px, 82%); display: flex; flex-direction: column; align-items: flex-start; }
+.mr.r .bw { align-items: flex-end; }
+.b {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  font-size: 14px;
+  line-height: 1.75;
+}
+.b.c { border-left: 4px solid var(--c); background: linear-gradient(135deg, var(--c-dim), #fff); }
+.b.x { border-right: 4px solid var(--x); background: linear-gradient(225deg, var(--x-dim), #fff); }
+.b.user-msg { background: #eef2ff; border-color: rgba(79,70,229,.20); }
+.b.thinking { color: var(--dim); display: flex; align-items: center; gap: 8px; }
+.dots span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 99px;
+  margin: 0 1px;
+  background: currentColor;
+  animation: bounce 1.2s ease-in-out infinite;
+}
+.dots span:nth-child(2) { animation-delay: .15s; }
+.dots span:nth-child(3) { animation-delay: .3s; }
+.b.streaming::after { content: "▋"; color: var(--accent); animation: blink .8s step-end infinite; margin-left: 2px; }
+.b.collapsed { max-height: 170px; overflow: hidden; position: relative; }
+.b.collapsed::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px;
+  background: linear-gradient(transparent, rgba(255,255,255,.96));
+}
+.b h2 { margin: 10px 0 5px; font-size: 15px; }
+.b h3 { margin: 8px 0 4px; font-size: 14px; }
+.b p { margin: 5px 0; }
+.b ul, .b ol { padding-left: 20px; margin: 5px 0; }
+.b code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: rgba(17,24,39,.07);
+  font-size: 12px;
+}
+.b pre {
+  position: relative;
+  overflow: auto;
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #0f172a;
+  color: #e5e7eb;
+}
+.b pre code { background: transparent; color: inherit; padding: 0; }
+.adj {
+  display: inline-flex;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(79,70,229,.08);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+.btn-copy, .btn-toggle, .btn-regen {
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255,255,255,.88);
+  color: var(--muted);
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity .16s ease, background .16s ease, color .16s ease, border-color .16s ease;
+}
+.mr:hover .btn-copy,
+.mr:hover .btn-toggle,
+.mr:hover .btn-regen { opacity: 1; }
+.btn-toggle[style*="display: none"],
+.btn-regen[style*="display: none"] { opacity: 0; }
+.tool-row {
+  align-self: center;
+  max-width: 90%;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--dim);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tool-row.calling { color: var(--warn); background: var(--warn-bg); }
+.research-panel,
+.sec-panel,
+.todos-panel,
+.score-card,
+.ask-user {
+  margin: 12px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255,255,255,.86);
+  box-shadow: var(--shadow-sm);
+}
+.research-panel { border-left: 4px solid var(--cyan); background: var(--cyan-dim); }
+.sec-panel { border-left: 4px solid var(--accent); }
+.research-label,
+.sec-label,
+.todos-label,
+.score-card-title,
+.ask-user-label {
+  margin-bottom: 8px;
+  color: var(--dim);
+  font-size: 12px;
+  font-weight: 800;
+}
+.b.research-body,
+.b.sec {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.moderator-strip {
+  align-self: center;
+  max-width: 90%;
+  padding: 7px 14px;
+  border: 1px solid rgba(180,91,5,.18);
+  border-radius: 999px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 12px;
+  text-align: center;
+}
+.sec-actions,
+.ask-user-btns,
+.modal-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn-export,
+.btn-stage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 13px;
+  font-size: 13px;
+  font-weight: 750;
+}
+.btn-export { color: var(--accent); border-color: rgba(79,70,229,.22); background: rgba(79,70,229,.08); }
+.btn-stage.primary { color: #fff; border-color: var(--accent); background: var(--accent); }
+.btn-stage.danger { color: #fff; border-color: var(--err); background: var(--err); }
+.btn-stage.warn { color: var(--warn); border-color: rgba(180,91,5,.22); background: var(--warn-bg); }
+.btn-stage.neutral { color: var(--dim); background: var(--surface); }
+.todo-item,
+.hist-todo-item { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.todo-item:last-child,
+.hist-todo-item:last-child { border-bottom: 0; }
+.todo-cb,
+.hist-todo-cb { margin-top: 3px; accent-color: var(--accent); }
+.todo-text { line-height: 1.55; }
+.done-text { color: var(--muted); text-decoration: line-through; }
+.score-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.score-num { font-weight: 800; color: var(--text); }
+.score-comment { margin-top: 6px; color: var(--dim); }
+.tags-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.ask-user input[type=text],
+.ask-user textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  outline: none;
+}
+
+.bot {
+  flex-shrink: 0;
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--border);
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(18px);
+}
+.mode-simple .bot {
+  width: 100%;
+}
+.bot-top { display: none; }
+.imeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.imeta .c { color: var(--c); font-weight: 750; }
+.imeta .x { color: var(--x); font-weight: 750; }
+.bot-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.role-wrap,
+.research-toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: 12px; }
+.role-label { color: var(--muted); }
+.role-select { min-width: 138px; max-width: 190px; padding: 7px 8px; font-size: 12px; }
+.template-select { min-width: 130px; padding: 7px 8px; font-size: 12px; }
+.reasoning-select { padding: 7px 8px; font-size: 12px; }
+.research-toggle input { accent-color: var(--accent); }
+.btn-mini { height: 34px; padding: 0 10px; font-size: 14px; }
+.attach-preview { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--dim);
+  font-size: 12px;
+}
+.attach-chip .rm { color: var(--err); cursor: pointer; }
+.irow { display: grid; grid-template-columns: minmax(0, 1fr) 44px 44px 74px 74px; gap: 8px; align-items: end; }
+.irow textarea {
+  width: 100%;
+  min-height: 46px;
+  max-height: 132px;
+  resize: none;
+  padding: 12px 13px;
+  line-height: 1.45;
+  overflow-y: auto;
+}
+.btn-attach,
+.btn-extract,
+.btn {
+  height: 46px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--dim);
+  font-weight: 760;
+  transition: background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.btn-attach,
+.btn-extract { width: 44px; font-size: 17px; }
+.btn {
+  color: #fff;
+  border-color: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 8px 18px rgba(79,70,229,.18);
+}
+.btn-pause {
+  color: var(--dim);
+  border-color: var(--border);
+  background: var(--surface);
+  box-shadow: none;
+}
+.btn-pause:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: rgba(79,70,229,.28);
+  background: rgba(79,70,229,.06);
+}
+.btn-pause:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+.btn:hover:not(:disabled),
+.btn-attach:hover,
+.btn-extract:hover { transform: translateY(-1px); }
+.btn-attach:hover,
+.btn-extract:hover { color: var(--accent); border-color: rgba(79,70,229,.28); background: rgba(79,70,229,.06); }
+
+.hist-view {
+  display: none;
+  position: fixed;
+  inset: var(--topbar-h) 0 0 var(--sidebar-w);
+  z-index: 30;
+  overflow-y: auto;
+  padding: 22px;
+  background: rgba(249,249,247,.98);
+}
+.mode-simple .hist-view { inset-left: 0; }
+.hist-view.visible { display: block; }
+.hist-view-hd { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.hist-view-hd h2 { flex: 1; min-width: 0; font-size: 18px; }
+.btn-back { padding: 8px 12px; }
+.hist-turn { margin: 12px 0; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--surface); box-shadow: var(--shadow-sm); }
+.hist-turn-hd { padding: 9px 12px; font-size: 12px; font-weight: 800; background: var(--surface-2); }
+.hist-turn-hd.c { color: var(--c); }
+.hist-turn-hd.x { color: var(--x); }
+.hist-turn-hd.m { color: #c2410c; }
+.hist-turn-hd.user { color: var(--accent); }
+.hist-turn-body { padding: 12px 14px; line-height: 1.75; }
+.hist-todos { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+.hist-todos-title { margin-bottom: 8px; color: var(--dim); font-size: 12px; font-weight: 800; }
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15,23,42,.42);
+}
+.modal-overlay.visible { display: flex; }
+.modal {
+  width: min(520px, 100%);
+  max-height: 84vh;
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.modal.modal-role { width: min(760px, 100%); display: flex; flex-direction: column; }
+.modal h3 { margin-bottom: 14px; font-size: 16px; }
+.modal-guide { width: min(620px, 100%); }
+.guide-kicker {
+  display: inline-flex;
+  margin-bottom: 10px;
+  padding: 5px 10px;
+  border: 1px solid rgba(79,70,229,.18);
+  border-radius: 999px;
+  background: rgba(79,70,229,.08);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+.guide-lead {
+  margin: -4px 0 14px;
+  color: var(--dim);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.guide-steps {
+  display: grid;
+  gap: 10px;
+}
+.guide-step {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.guide-step span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 850;
+}
+.guide-step strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 13px;
+}
+.guide-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.guide-note {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px dashed rgba(180,91,5,.24);
+  border-radius: 12px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.modal input[type=text],
+.modal input[type=password],
+.modal select {
+  width: 100%;
+  padding: 11px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+}
+.modal textarea {
+  width: 100%;
+  min-height: 180px;
+  padding: 11px 12px;
+  margin-bottom: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  resize: vertical;
+  line-height: 1.65;
+}
+.modal input[type=password]:focus,
+.modal select:focus,
+.modal textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+}
+.custom-role-row {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 10px;
+}
+.custom-role-model-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+.custom-role-model-row .btn-stage { height: 44px; white-space: nowrap; }
+.custom-role-field-label {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+.custom-role-reasoning-meta {
+  margin: -6px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.custom-role-hint {
+  margin: -4px 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.custom-role-list,
+.agent-manager-list {
+  margin: 0 0 12px;
+  display: grid;
+  gap: 8px;
+}
+.agent-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.agent-slot-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.agent-slot-card.is-disabled { opacity: .68; }
+.agent-slot-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.agent-slot-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 780;
+}
+.agent-slot-sub {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.agent-slot-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.agent-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 12px 0 0;
+}
+.agent-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.agent-toggle input { accent-color: var(--accent); }
+.agent-role-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.agent-role-note.warn {
+  border-color: rgba(180,91,5,.18);
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.custom-role-item,
+.agent-manager-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--dim);
+  font-size: 12px;
+}
+.agent-manager-meta {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.agent-manager-name {
+  color: var(--text);
+  font-weight: 750;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-manager-sub {
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.custom-role-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.modal-topics { margin-top: 12px; }
+.modal-topic-item {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  line-height: 1.55;
+}
+.modal-topic-item:hover { border-color: var(--accent); background: rgba(79,70,229,.06); }
+.modal-hint { color: var(--muted); font-size: 12px; margin-bottom: 8px; }
+.modal-role .modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-2);
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+
+.sidebar-scrim { display: none; }
+.btn-code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 7px;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 7px;
+  background: rgba(15,23,42,.82);
+  color: #fff;
+  opacity: 0;
+}
+pre:hover .btn-code-copy { opacity: 1; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: .35; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+@media (max-width: 920px) {
+  .app,
+  .mode-simple .app { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    display: flex;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    width: min(88vw, 340px);
+    transform: translateX(-105%);
+    transition: transform .22s ease;
+    box-shadow: var(--shadow-md);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .mode-simple .sidebar.open { display: flex; }
+  .sidebar-scrim.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    background: rgba(15,23,42,.36);
+  }
+  .hist-view,
+  .mode-simple .hist-view { inset: var(--topbar-h) 0 0 0; }
+  .desktop-only { display: none; }
+  .topbar { padding: 0 12px; gap: 8px; }
+  .brand-sub { display: none; }
+  .mode-tab { padding-inline: 9px; }
+  .topic-grid { grid-template-columns: 1fr; }
+  .hero { align-items: flex-start; padding-top: 40px; }
+}
+@media (max-width: 640px) {
+  html, body { overflow-x: hidden; }
+  body { font-size: 14px; }
+  .workspace { min-width: 0; }
+  .brand { flex: 0 0 auto; min-width: 0; }
+  .brand-title { display: none; }
+  .brand-mark { width: 30px; height: 30px; }
+  .mode-switch { flex-shrink: 0; }
+  .mode-tab { width: 44px; padding: 7px 0; font-size: 0; }
+  #mode-simple-btn::after { content: "简易"; font-size: 12px; }
+  #mode-advanced-btn::after { content: "高级"; font-size: 12px; }
+  .topbar-actions { gap: 5px; }
+  .topbar { justify-content: flex-start; overflow: hidden; }
+  .topbar-actions { margin-left: auto; flex: 0 0 auto; }
+  .topbar-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 0;
+  }
+  .topbar-btn.agent-btn::after { content: "Agent"; font-size: 12px; }
+  .topbar-btn.settings-btn::after { content: "设"; font-size: 12px; }
+  .topbar-btn.history-btn::after { content: "历"; font-size: 12px; }
+  .topbar-btn.desktop-only { display: none; }
+  .hero { padding: 34px 16px 30px; justify-content: flex-start; }
+  .hero-inner { text-align: left; }
+  .hero-kicker { margin-bottom: 15px; }
+  .hero h1 { font-size: 28px; max-width: 330px; word-break: break-all; }
+  .hero-sub { margin-inline: 0; font-size: 15px; }
+  .hero-input { grid-template-columns: 1fr; border-radius: 16px; width: 100%; }
+  .hero-preheat { width: 100%; }
+  .hero-start { width: 100%; }
+  .hero-note { margin-top: 8px; }
+  .topic-card { min-height: 52px; }
+  .chat { padding: 16px 12px; }
+  .hd { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .fp { padding: 12px 10px; }
+  .fn { font-size: 13px; gap: 5px; min-width: 0; }
+  .fn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .htitle { font-size: 12px; }
+  .bw { max-width: 94%; }
+  .bot { padding: 10px 10px 12px; }
+  .bot-top { display: none; }
+  .irow { grid-template-columns: 1fr 42px 42px; }
+  .irow .btn { grid-column: span 3; width: 100%; }
+  .mode-simple .irow { grid-template-columns: 1fr 42px; }
+  .mode-simple .btn-extract { display: none; }
+  .mode-simple .irow .btn { grid-column: 1 / -1; }
+  .modal-overlay { align-items: flex-end; padding: 10px; }
+  .modal { width: 100%; border-radius: 18px; }
+  .settings-row { grid-template-columns: 1fr; }
+  .agent-slot-grid { grid-template-columns: 1fr; }
+  .runtime-warning { margin: 12px 12px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+</style>
+<script src="panel.js"></script>
+</head>
+<body class="mode-simple">
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-hd">
+      <div class="sb-hd-top">
+        <span class="sb-title">历史议题</span>
+        <button class="btn-new-topic" onclick="newTopic()">新议题</button>
+      </div>
+      <div class="sb-search-row">
+        <input class="sb-search-input" id="sb-search" type="text" placeholder="搜议题…" oninput="filterSidebar()">
+        <select class="sb-tag-select" id="sb-tag-filter" onchange="filterSidebar()">
+          <option value="">全部</option>
+        </select>
+      </div>
+    </div>
+    <div class="sb-list" id="sb-list">
+      <div class="sb-empty">暂无历史</div>
+    </div>
+  </aside>
+  <div class="sidebar-scrim" id="sidebar-scrim" onclick="closeSidebar()"></div>
+
+  <main class="workspace">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">◎</div>
+        <div>
+          <div class="brand-title">AI Roundtable / 圆桌会议</div>
+          <div class="brand-sub">AI Debate Workspace / AI 辩论工作台</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <div class="mode-switch" role="tablist" aria-label="界面模式">
+          <button class="mode-tab" id="mode-simple-btn" role="tab" aria-selected="true" onclick="setMode('simple')">Simple / 简易</button>
+          <button class="mode-tab" id="mode-advanced-btn" role="tab" aria-selected="false" onclick="setMode('advanced')">Advanced / 高级</button>
+        </div>
+        <button class="topbar-btn agent-btn" onclick="openAgentModal()">Agents / Agent 管理</button>
+        <button class="topbar-btn theme-toggle-btn" id="theme-toggle-btn" type="button" aria-pressed="false" onclick="toggleTheme()">Dark / 暗黑</button>
+        <button class="topbar-btn settings-btn" onclick="openSettingsModal()">Settings / 设置</button>
+        <button class="topbar-btn guide-btn" onclick="openGuideModal()">Guide / 说明</button>
+        <button class="topbar-btn history-btn" onclick="openSidebar()">History / 历史</button>
+      </div>
+    </header>
+    <div class="runtime-warning" id="runtime-warning"></div>
+
+    <section class="content">
+      <section class="hero is-home" id="simple-home">
+        <div class="hero-inner">
+          <div class="hero-kicker">AI Roundtable Debate Assistant / AI 圆桌会议辩论助手</div>
+          <h1>Let AI agents unpack hard decisions / 让 AI 拆解难题</h1>
+          <p class="hero-sub">Simple mode keeps only input and start. Advanced mode adds agents, templates, preheat research, depth, export, and history resume. / 简易版只保留输入和开始；高级版提供角色、模板、预热、深度、导出和历史续辩。</p>
+          <div class="hero-input">
+            <input id="hero-input" type="text" placeholder="例：这个 ecommerce 产品值得做吗？" autocomplete="off" onkeydown="handleHeroKeydown(event)">
+            <button class="hero-preheat" id="hero-preheat-btn" type="button" aria-pressed="false" onclick="toggleHeroPreheat()">Preheat off / 预热关</button>
+            <button class="hero-start" onclick="heroStart()">Start debate / 开始辩论</button>
+          </div>
+          <div class="hero-note" id="hero-note">Preheat is off: start the debate directly. / 预热关闭：直接开始辩论。</div>
+          <div class="topic-label">Common Topic Templates / 常用议题模板</div>
+          <div class="topic-grid" id="hero-topic-grid"></div>
+        </div>
+      </section>
+
+      <section class="panel-stage is-home" id="panel-stage">
+        <div id="main-host"></div>
+      </section>
+    </section>
+  </main>
+
+  <div class="hist-view" id="hist-view">
+    <div class="hist-view-hd">
+      <h2 id="hist-view-title"></h2>
+      <button class="btn-back" onclick="closeHistView()">返回</button>
+    </div>
+    <div id="hist-view-body"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="guide-modal">
+  <div class="modal modal-guide">
+    <div class="guide-kicker">Quick Start / 首次使用说明</div>
+    <h3>Get started with AI Roundtable / 开始使用圆桌会议</h3>
+    <p class="guide-lead">This version does not include a site-owner API key. Each user must configure their own API before starting a debate. / 本版本不内置站长 API Key，需配置自己的 API 后使用。</p>
+    <div class="guide-steps">
+      <div class="guide-step"><span>1</span><div><strong>API Settings / 填写 API 设置</strong><p>Enter Base URL and your own API key. The key is stored only in this browser. / 输入 Base URL 和自己的 API Key。</p></div></div>
+      <div class="guide-step"><span>2</span><div><strong>Default Models / 选择默认模型</strong><p>Choose models for analyst, executor, and secretary roles. / 设置分析型、执行型和秘书使用的模型。</p></div></div>
+      <div class="guide-step"><span>3</span><div><strong>Agents / 选择 Agent</strong><p>A/B are the default debaters. C is optional. / A/B 是默认两位辩手，C 是可选第三辩手。</p></div></div>
+      <div class="guide-step"><span>4</span><div><strong>Start / 输入议题开始</strong><p>Enable preheat research or start directly, then export summaries and action items. / 可开启预热，也可以直接开辩。</p></div></div>
+    </div>
+    <div class="guide-note">Use HTTPS for any public deployment to protect API keys in transit. / 公网部署建议使用 HTTPS。</div>
+    <div class="modal-btns" style="justify-content:flex-end">
+      <button class="btn-stage primary" onclick="startGuideSetup()">Set up API / 开始设置</button>
+      <button class="btn-stage neutral" onclick="hideGuideModal(true)">Got it / 我知道了</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="extract-modal">
+  <div class="modal">
+    <h3>从资料抽议题</h3>
+    <input type="text" id="extract-input" placeholder="输入 URL 或本地文件路径（如 ~/Desktop/report.pdf）">
+    <div class="modal-btns">
+      <button class="btn-stage primary" onclick="doExtract()">提取议题</button>
+      <button class="btn-stage neutral" onclick="hideExtractModal()">取消</button>
+    </div>
+    <div class="modal-topics" id="extract-topics" style="display:none">
+      <div class="modal-hint">点选议题后会填入输入框：</div>
+      <div id="extract-topic-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="role-modal">
+  <div class="modal modal-role">
+    <h3 id="role-modal-title">角色 prompt</h3>
+    <div class="modal-body" id="role-modal-body"></div>
+    <div class="modal-btns" style="justify-content:flex-end">
+      <button class="btn-stage neutral" onclick="hideRoleModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h3>Workspace Settings / 工作台设置</h3>
+    <div class="settings-grid">
+      <section class="settings-section">
+        <h4>Debate Settings / 辩论设置</h4>
+        <div class="settings-row">
+          <div class="settings-field">
+            <label for="settings-template">Topic Template / 议题模板</label>
+            <select id="settings-template"></select>
+          </div>
+          <div class="settings-field">
+            <label>Secretary Agent / 秘书 Agent 设置</label>
+            <div class="settings-action-card">
+              <span class="settings-action-text" id="settings-secretary-label">📝 默认秘书</span>
+              <button class="btn-stage neutral" type="button" onclick="openSecretaryAgentSettings()">Set / 设置</button>
+            </div>
+          </div>
+          <div class="settings-field">
+            <label><input type="checkbox" id="settings-research"> Preheat before debate / 开局先预热</label>
+          </div>
+        </div>
+        <div class="settings-help">这些原来放在底部输入栏上面，现在统一收进设置里。</div>
+      </section>
+
+      <section class="settings-section">
+        <h4>System Settings / 系统设置</h4>
+        <div class="settings-row">
+          <div class="settings-field">
+            <label><input type="checkbox" id="settings-enter-start"> Enter starts debate / Enter 直接开始辩论</label>
+          </div>
+        </div>
+        <div class="settings-help">暗黑模式已经移到顶栏一键切换。这里保留输入行为等系统级开关。</div>
+      </section>
+
+      <section class="settings-section">
+        <h4>API Settings / API 设置</h4>
+        <div class="settings-row">
+          <div class="settings-field">
+            <label for="settings-api-base-url">API Base URL</label>
+            <input type="text" id="settings-api-base-url" placeholder="例如：https://api.openai.com/v1">
+          </div>
+          <div class="settings-field">
+            <label for="settings-api-key">API Key</label>
+            <input type="password" id="settings-api-key" placeholder="Your own API key / 用户自己的 API Key" autocomplete="off">
+          </div>
+          <div class="settings-field">
+            <label for="settings-analyst-model">Analyst Model / 分析型默认模型</label>
+            <input type="text" id="settings-analyst-model" placeholder="例如：gpt-4.1">
+          </div>
+          <div class="settings-field">
+            <label for="settings-executor-model">Executor Model / 执行型默认模型</label>
+            <input type="text" id="settings-executor-model" placeholder="例如：gpt-4.1">
+          </div>
+          <div class="settings-field">
+            <label for="settings-secretary-model">Secretary Model (optional) / 秘书默认模型</label>
+            <input type="text" id="settings-secretary-model" placeholder="不填则跟随分析型模型">
+          </div>
+        </div>
+        <div class="settings-help">A personal API key is required to start a debate. Settings are stored only in this browser and sent to the local backend per request. They are not written to project files and no site-owner API key is used. / 必须填写自己的 API Key 才能开辩，配置仅保存在当前浏览器。</div>
+      </section>
+
+      <section class="settings-section">
+        <h4>常用议题模板</h4>
+        <div class="template-editor-grid" id="settings-template-editor"></div>
+        <div class="settings-help">这里只改首页常用议题模板的文案和对应议题，保存在当前浏览器，不会覆盖项目里的默认模板文件。</div>
+      </section>
+    </div>
+    <div class="modal-btns" style="justify-content:flex-end">
+      <button class="btn-stage primary" onclick="applySettingsModal()">Apply / 应用</button>
+      <button class="btn-stage neutral" onclick="hideSettingsModal()">Cancel / 取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="agent-modal">
+  <div class="modal">
+    <h3>Agent Management / Agent 管理</h3>
+    <div class="settings-grid">
+      <section class="settings-section">
+        <h4>Debaters for this round / 本轮辩手</h4>
+        <div class="agent-slot-grid">
+          <div class="agent-slot-card">
+            <div class="agent-slot-top">
+              <div>
+                <div class="agent-slot-title">Debater A / A 辩手</div>
+                <div class="agent-slot-sub">Primary analytical view. / 主分析视角。</div>
+              </div>
+            </div>
+            <select id="settings-role-a"></select>
+            <div class="agent-slot-actions">
+              <button class="btn-stage neutral" onclick="openSettingsRoleEditor('a')">Edit current agent / 编辑当前 Agent</button>
+            </div>
+          </div>
+          <div class="agent-slot-card">
+            <div class="agent-slot-top">
+              <div>
+                <div class="agent-slot-title">Debater B / B 辩手</div>
+                <div class="agent-slot-sub">Primary execution view. / 主执行视角。</div>
+              </div>
+            </div>
+            <select id="settings-role-b"></select>
+            <div class="agent-slot-actions">
+              <button class="btn-stage neutral" onclick="openSettingsRoleEditor('b')">Edit current agent / 编辑当前 Agent</button>
+            </div>
+          </div>
+        </div>
+        <div class="agent-toggle-row">
+          <label class="agent-toggle">
+            <input type="checkbox" id="settings-enable-third" onchange="syncAgentModalThirdState()">
+            Enable third debater / 启用第三辩手
+          </label>
+          <div class="agent-slot-sub">第三辩手是可选项。</div>
+        </div>
+        <div class="agent-slot-grid" style="margin-top:10px">
+          <div class="agent-slot-card" id="settings-role-c-card">
+            <div class="agent-slot-top">
+              <div>
+                <div class="agent-slot-title">Debater C / C 辩手</div>
+                <div class="agent-slot-sub">Optional additional view. / 可选补充视角。</div>
+              </div>
+            </div>
+            <select id="settings-role-c"></select>
+            <div class="agent-slot-actions">
+              <button class="btn-stage neutral" onclick="openSettingsRoleEditor('c')">Edit current agent / 编辑当前 Agent</button>
+            </div>
+          </div>
+        </div>
+        <div class="agent-role-note" id="agent-role-note">这里设置的是本轮辩手阵容。内置角色点“编辑当前 Agent”会先复制成一个可编辑版本。</div>
+      </section>
+      <section class="settings-section">
+        <div class="sb-hd-top" style="margin-bottom:10px">
+          <h4 style="margin:0">Agent Library / Agent 库</h4>
+          <button class="btn-stage primary" type="button" onclick="openNewAgentFromManager()">New Agent / 新增 Agent</button>
+        </div>
+        <div class="agent-manager-list" id="agent-manager-list"></div>
+        <div class="settings-help">这里管理你自己的长期 Agent 资产。新增、编辑、删除会立即生效，并同步到顶部角色下拉里。</div>
+      </section>
+    </div>
+    <div class="modal-btns" style="justify-content:flex-end">
+      <button class="btn-stage primary" onclick="applyAgentModal()">Apply / 应用</button>
+      <button class="btn-stage neutral" onclick="hideAgentModal()">Cancel / 取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="custom-role-modal">
+  <div class="modal">
+    <h3 id="custom-role-title">🧩 Custom Agent and Model / 自定义角色和模型</h3>
+    <div class="custom-role-hint">API keys are stored in this browser only. API settings, model ID, and the role prompt are sent to the local backend when a round starts. / API Key 仅保存在当前浏览器。</div>
+    <input type="text" id="custom-role-name" placeholder="Agent name, for example: Risk Reviewer / 角色名" />
+    <div class="custom-role-row">
+      <input type="text" id="custom-role-icon" placeholder="图标" maxlength="4" />
+      <input type="text" id="custom-role-subtitle" placeholder="Short tag, for example: Reviewer / 短标签" />
+    </div>
+    <input type="text" id="custom-role-base-url" placeholder="API Base URL，例如：https://api.openai.com/v1" />
+    <input type="password" id="custom-role-api-key" placeholder="LLM API Key（不填则使用全局 API 设置）" autocomplete="off" />
+    <div class="custom-role-model-row">
+      <select id="custom-role-model-select" onchange="selectCustomRoleModel()">
+        <option value="">Fetch models first, or type manually / 先拉取模型，或直接手动输入</option>
+      </select>
+      <button class="btn-stage neutral" onclick="loadCustomRoleModels()">Fetch models / 拉取模型</button>
+    </div>
+    <input type="text" id="custom-role-model" placeholder="模型 ID，例如：gpt-4.1" oninput="updateCustomReasoningOptions()" />
+    <div class="custom-role-field-label">Reasoning / 思考推理</div>
+    <select id="custom-role-reasoning"></select>
+    <div class="custom-role-reasoning-meta" id="custom-role-reasoning-meta"></div>
+    <textarea id="custom-role-body" placeholder="Write this agent's system prompt: focus, voice, output format, and limits. / 写这个角色的 system prompt。"></textarea>
+    <div class="modal-btns">
+      <button class="btn-stage primary" id="custom-role-save-btn" onclick="saveCustomRole()">Save and select / 保存并选择</button>
+      <button class="btn-stage neutral" onclick="hideCustomRoleModal()">Cancel / 取消</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('main-host').innerHTML = MAIN_PANEL_HTML
+  .replaceAll('__SUFFIX__', '')
+  .replaceAll('__PVAR__', 'p');
+
+document.getElementById('chat-log').insertAdjacentHTML('beforeend', `
+  <div class="empty-state" id="empty-state">
+    <div class="empty-state-title">高级工作台已就绪</div>
+    <div class="empty-state-body">选择角色、模板、预热和秘书 Agent 后，在底部输入议题开始。简易版可随时切回，不会清空当前设置。</div>
+  </div>
+`);
+
+let allRoles = [];
+let historyData = [];
+const MODE_KEY = 'yuanzhuo_ui_mode';
+const CUSTOM_ROLES_KEY = 'yuanzhuo_custom_roles_v1';
+let customRoleTargetPanel = null;
+let customRoleEditingShort = '';
+let customRoleTargetSide = 'a';
+let modelHealth = { available_models: null, missing_default_models: [], models_error: '' };
+let rolesLoadMessage = '';
+const UI_PREFS_KEY = 'yuanzhuo_ui_prefs_v1';
+const API_SETTINGS_KEY = 'yuanzhuo_user_api_settings_v1';
+const ONBOARDING_KEY = 'yuanzhuo_onboarding_seen_v1';
+const HERO_TOPICS_KEY = 'yuanzhuo_hero_topics_v1';
+const SECRETARY_ROLE_SHORT = 'custom-default-secretary';
+const DEFAULT_SECRETARY_PROMPT = `你是圆桌会议的默认秘书。
+
+任务：
+- 客观整理刚才完整辩论，不偏向任何一位辩手
+- 提炼核心共识、主要分歧和 USER 下一步判断
+- 输出 2-4 条 USER 可以立即执行的待办
+
+要求：
+- 简洁、具体、可执行
+- 不重复复述全文
+- 待办必须使用 "- [ ]" checkbox 格式`;
+const DEFAULT_HERO_TOPICS = [
+  { label: '🛍 Ecommerce opportunity / 电商机会评估', topic: 'Should we pursue this ecommerce product opportunity? / 这个电商产品机会值得做吗？' },
+  { label: '📦 Operations and margin / 运营与利润测算', topic: 'Are the margin, cost, and operational risks acceptable? / 利润、成本和运营风险是否可接受？' },
+  { label: '💰 Investment and cash flow / 投资与现金流', topic: 'Will this investment put cash flow at risk? / 这笔投入会不会影响现金流安全？' },
+  { label: '🤝 Negotiation prep / 谈判准备', topic: 'How should we open, negotiate, and set boundaries? / 这个谈判应该怎么开口、怎么让步？' },
+];
+const FALLBACK_BASE_ROLES = [
+  { file: 'zhuge', name: '分析型辩手', short: 'analyst', color: 'green', icon: '🧠', model: 'gpt-4.1', subtitle: '分析型', tags: '长远 · 风险 · 资源' },
+  { file: 'sima', name: '执行型辩手', short: 'executor', color: 'red', icon: '💰', model: 'gpt-4.1', subtitle: '执行型', tags: 'ROI · 落地 · 现金流' },
+  { file: 'investor', name: '投资人视角', short: 'investor', color: 'gold', icon: '💼', model: 'gpt-4.1', subtitle: '投资派', tags: '风险 · 回报 · 退出' },
+  { file: 'user', name: '用户视角', short: 'user', color: 'blue', icon: '🛒', model: 'gpt-4.1', subtitle: '用户派', tags: '值不值 · 好不好用 · 推荐' },
+  { file: 'boss', name: '老板视角', short: 'boss', color: 'orange', icon: '👔', model: 'gpt-4.1', subtitle: '管理派', tags: 'KPI · 效率 · 盈利' },
+  { file: 'mentor', name: '导师视角', short: 'mentor', color: 'purple', icon: '🎓', model: 'gpt-4.1', subtitle: '导师派', tags: '趋势 · 认知 · 避坑' },
+];
+
+function normalizeRoleAlias(short) {
+  return ({ claude: 'analyst', codex: 'executor', zhuge: 'analyst', sima: 'executor' })[short] || short;
+}
+
+function isFileMode() {
+  return location.protocol === 'file:';
+}
+
+function fallbackBaseRoles() {
+  return FALLBACK_BASE_ROLES.map(role => ({ ...role }));
+}
+
+function appServerUrl() {
+  return 'http://127.0.0.1:8891/';
+}
+
+function showRuntimeWarning(msg = '') {
+  const box = document.getElementById('runtime-warning');
+  if (!box) return;
+  if (!msg) {
+    box.classList.remove('visible');
+    box.textContent = '';
+    return;
+  }
+  box.textContent = msg;
+  box.classList.add('visible');
+}
+
+function requireAppServer(action = '使用完整功能') {
+  if (!isFileMode()) return true;
+  alert(`当前是直接打开 HTML 文件，${action} 需要通过本地服务运行。\n请改用 ${appServerUrl()}`);
+  return false;
+}
+
+window.p = new YuanPanel('');
+const ta = document.getElementById('topic-input');
+const sidebar = document.getElementById('sidebar');
+const sidebarScrim = document.getElementById('sidebar-scrim');
+
+function currentMode() {
+  return document.body.classList.contains('mode-advanced') ? 'advanced' : 'simple';
+}
+
+function setMode(mode, opts = {}) {
+  const next = mode === 'advanced' ? 'advanced' : 'simple';
+  document.body.classList.toggle('mode-simple', next === 'simple');
+  document.body.classList.toggle('mode-advanced', next === 'advanced');
+  document.getElementById('mode-simple-btn').setAttribute('aria-selected', next === 'simple' ? 'true' : 'false');
+  document.getElementById('mode-advanced-btn').setAttribute('aria-selected', next === 'advanced' ? 'true' : 'false');
+  if (!opts.skipPersist) localStorage.setItem(MODE_KEY, next);
+  if (next === 'advanced') showWorkbench({ keepMode: true });
+  else if (!p.curSid && !p.es && !hasConversationContent()) showHome();
+  closeSidebar();
+}
+
+function hasConversationContent() {
+  const chatLog = document.getElementById('chat-log');
+  if (!chatLog) return false;
+  return [...chatLog.children].some(el => (
+    !el.classList.contains('empty-state')
+    && !!el.textContent.trim()
+  ));
+}
+
+function showWorkbench() {
+  document.getElementById('simple-home').classList.remove('is-home');
+  document.getElementById('panel-stage').classList.remove('is-home');
+}
+
+function showHome() {
+  document.getElementById('simple-home').classList.add('is-home');
+  document.getElementById('panel-stage').classList.add('is-home');
+  document.getElementById('hero-input').focus();
+}
+
+function getUiPrefs() {
+  try {
+    return {
+      theme: 'system',
+      enterStart: true,
+      ...(JSON.parse(localStorage.getItem(UI_PREFS_KEY) || '{}') || {}),
+    };
+  } catch (_) {
+    return { theme: 'system', enterStart: true };
+  }
+}
+
+function saveUiPrefs(next) {
+  localStorage.setItem(UI_PREFS_KEY, JSON.stringify(next));
+}
+
+function getApiSettings() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(API_SETTINGS_KEY) || '{}') || {};
+    const analystModel = raw.analyst_model || raw.claude_model || '';
+    const executorModel = raw.executor_model || raw.codex_model || '';
+    const secretaryModel = raw.secretary_model || '';
+    return {
+      base_url: '',
+      api_key: '',
+      ...raw,
+      analyst_model: analystModel,
+      executor_model: executorModel,
+      secretary_model: secretaryModel,
+    };
+  } catch (_) {
+    return { base_url: '', api_key: '', analyst_model: '', executor_model: '', secretary_model: '' };
+  }
+}
+
+function saveApiSettings(next) {
+  localStorage.setItem(API_SETTINGS_KEY, JSON.stringify(next));
+}
+
+function hasUserApiSettings() {
+  const settings = getApiSettings();
+  return !!(settings.base_url || settings.api_key || settings.analyst_model || settings.executor_model || settings.secretary_model);
+}
+
+function hasUserApiKey() {
+  return !!getApiSettings().api_key;
+}
+
+function requireUserApiKey() {
+  if (!requireAppServer('Start debate / 开始辩论')) return false;
+  if (hasUserApiKey()) return true;
+  alert('Please enter your own API key in Settings -> API Settings before starting. This app does not use a site-owner API key. / 请先在「设置 → API 设置」里输入你自己的 API Key。');
+  openSettingsModal();
+  setTimeout(() => document.getElementById('settings-api-key')?.focus(), 80);
+  return false;
+}
+
+function openGuideModal() {
+  document.getElementById('guide-modal').classList.add('visible');
+}
+
+function hideGuideModal(markSeen = false) {
+  if (markSeen) localStorage.setItem(ONBOARDING_KEY, '1');
+  document.getElementById('guide-modal').classList.remove('visible');
+}
+
+function startGuideSetup() {
+  hideGuideModal(true);
+  openSettingsModal();
+  setTimeout(() => document.getElementById('settings-api-base-url')?.focus(), 80);
+}
+
+function maybeShowGuide() {
+  if (localStorage.getItem(ONBOARDING_KEY)) return;
+  setTimeout(openGuideModal, 350);
+}
+
+function getHeroTopics() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(HERO_TOPICS_KEY) || 'null');
+    return Array.isArray(saved) && saved.length ? saved : DEFAULT_HERO_TOPICS;
+  } catch (_) {
+    return DEFAULT_HERO_TOPICS;
+  }
+}
+
+function saveHeroTopics(items) {
+  localStorage.setItem(HERO_TOPICS_KEY, JSON.stringify(items));
+}
+
+function renderHeroTopics() {
+  const grid = document.getElementById('hero-topic-grid');
+  if (!grid) return;
+  const items = getHeroTopics();
+  grid.innerHTML = '';
+  items.forEach(item => {
+    const btn = document.createElement('button');
+    btn.className = 'topic-card';
+    btn.dataset.topic = item.topic;
+    btn.textContent = item.label;
+    btn.onclick = () => fillHeroTopic(item.topic);
+    grid.appendChild(btn);
+  });
+}
+
+function applyTheme(theme) {
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const useDark = theme === 'dark' || (theme === 'system' && prefersDark);
+  document.body.classList.toggle('theme-dark', useDark);
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) {
+    const isDark = document.body.classList.contains('theme-dark');
+    btn.setAttribute('aria-pressed', isDark ? 'true' : 'false');
+    btn.textContent = isDark ? 'Light / 浅色' : 'Dark / 暗黑';
+  }
+}
+
+function toggleTheme() {
+  const isDark = document.body.classList.contains('theme-dark');
+  const next = isDark ? 'light' : 'dark';
+  const prefs = { ...getUiPrefs(), theme: next };
+  saveUiPrefs(prefs);
+  applyTheme(next);
+}
+
+function isEnterStartEnabled() {
+  return !!getUiPrefs().enterStart;
+}
+
+function handleHeroKeydown(event) {
+  if (event.key === 'Enter' && isEnterStartEnabled()) {
+    event.preventDefault();
+    heroStart();
+  }
+}
+
+function openSettingsModal() {
+  const prefs = getUiPrefs();
+  const apiSettings = getApiSettings();
+  const map = [
+    ['settings-template', 'template-select'],
+  ];
+  map.forEach(([targetId, sourceId]) => {
+    const target = document.getElementById(targetId);
+    const source = document.getElementById(sourceId);
+    if (!target || !source) return;
+    target.innerHTML = source.innerHTML;
+    target.value = source.value;
+  });
+  syncSecretaryAgentLabel();
+  document.getElementById('settings-research').checked = !!document.getElementById('research-toggle')?.checked;
+  document.getElementById('settings-enter-start').checked = !!prefs.enterStart;
+  document.getElementById('settings-api-base-url').value = apiSettings.base_url || '';
+  document.getElementById('settings-api-key').value = apiSettings.api_key || '';
+  document.getElementById('settings-analyst-model').value = apiSettings.analyst_model || '';
+  document.getElementById('settings-executor-model').value = apiSettings.executor_model || '';
+  document.getElementById('settings-secretary-model').value = apiSettings.secretary_model || '';
+  const editor = document.getElementById('settings-template-editor');
+  editor.innerHTML = '';
+  getHeroTopics().forEach((item, idx) => {
+    const row = document.createElement('div');
+    row.className = 'template-editor-item';
+    row.innerHTML = `
+      <input type="text" id="settings-hero-label-${idx}" value="${escHtml(item.label)}" placeholder="卡片标题">
+      <input type="text" id="settings-hero-topic-${idx}" value="${escHtml(item.topic)}" placeholder="点击后填入的议题">
+    `;
+    editor.appendChild(row);
+  });
+  document.getElementById('settings-modal').classList.add('visible');
+}
+
+function hideSettingsModal() {
+  document.getElementById('settings-modal').classList.remove('visible');
+}
+
+function getSecretaryRoleConfig() {
+  const saved = getCustomRoles().find(r => r.short === SECRETARY_ROLE_SHORT);
+  if (saved) return saved;
+  const apiSettings = getApiSettings();
+  return {
+    file: SECRETARY_ROLE_SHORT,
+    short: SECRETARY_ROLE_SHORT,
+    name: '默认秘书',
+    icon: '📝',
+    model: apiSettings.secretary_model || apiSettings.analyst_model || 'gpt-4.1',
+    base_url: 'https://api.openai.com/v1',
+    api_key: '',
+    reasoning: 'medium',
+    subtitle: '秘书',
+    color: 'purple',
+    tags: '秘书',
+    body: DEFAULT_SECRETARY_PROMPT,
+    custom: true,
+  };
+}
+
+function syncSecretaryAgentLabel() {
+  const label = document.getElementById('settings-secretary-label');
+  if (!label) return;
+  const role = getCustomRoles().find(r => r.short === SECRETARY_ROLE_SHORT);
+  label.textContent = role ? `${role.icon || '📝'} ${role.name}` : '📝 默认秘书';
+}
+
+function openSecretaryAgentSettings() {
+  hideSettingsModal();
+  const role = getSecretaryRoleConfig();
+  customRoleTargetPanel = p;
+  customRoleTargetSide = 'secretary';
+  customRoleEditingShort = SECRETARY_ROLE_SHORT;
+  fillCustomRoleForm(role);
+  document.getElementById('custom-role-title').textContent = '📝 默认秘书 Agent 设置';
+  document.getElementById('custom-role-save-btn').textContent = '保存秘书设置';
+  document.getElementById('custom-role-modal').classList.add('visible');
+  document.getElementById('custom-role-name').focus();
+}
+
+function syncAgentModalRoleSelects() {
+  const map = [
+    ['settings-role-a', 'role-a-select'],
+    ['settings-role-b', 'role-b-select'],
+    ['settings-role-c', 'role-c-select'],
+  ];
+  map.forEach(([targetId, sourceId]) => {
+    const target = document.getElementById(targetId);
+    const source = document.getElementById(sourceId);
+    if (!target || !source) return;
+    target.innerHTML = source.innerHTML;
+    target.value = source.value;
+  });
+  const thirdEnabled = !!document.getElementById('role-c-select')?.value;
+  const toggle = document.getElementById('settings-enable-third');
+  if (toggle) toggle.checked = thirdEnabled;
+  syncAgentModalThirdState();
+}
+
+function syncAgentModalThirdState() {
+  const toggle = document.getElementById('settings-enable-third');
+  const card = document.getElementById('settings-role-c-card');
+  const select = document.getElementById('settings-role-c');
+  if (!toggle || !card || !select) return;
+  const enabled = !!toggle.checked;
+  card.classList.toggle('is-disabled', !enabled);
+  select.disabled = !enabled;
+  if (!enabled) select.value = '';
+}
+
+function syncAgentRoleNote() {
+  const note = document.getElementById('agent-role-note');
+  if (!note) return;
+  const parts = ['This area configures debaters for the current round. Click Apply before starting. / 本区是在设置本轮辩手阵容，点“应用”后生效。'];
+  if (rolesLoadMessage) {
+    note.textContent = rolesLoadMessage;
+    note.classList.add('warn');
+    return;
+  }
+  note.classList.remove('warn');
+  if (isFileMode()) {
+    parts.push(`当前是文件模式：可先查看和调整下拉，但编辑内置角色、拉模型、正式开辩请改用 ${appServerUrl()}`);
+  } else {
+    parts.push('内置角色点“编辑当前 Agent”会先复制成可编辑版本，自定义 Agent 则直接更新。');
+  }
+  note.textContent = parts.join(' ');
+}
+
+async function openAgentModal() {
+  if (!allRoles.length || !document.getElementById('role-a-select')?.options.length) {
+    await loadRoles();
+  }
+  syncAgentModalRoleSelects();
+  syncAgentRoleNote();
+  renderAgentManagerList();
+  document.getElementById('agent-modal').classList.add('visible');
+}
+
+function hideAgentModal() {
+  document.getElementById('agent-modal').classList.remove('visible');
+}
+
+function applySettingsModal() {
+  const map = [
+    ['settings-template', 'template-select'],
+  ];
+  map.forEach(([sourceId, targetId]) => {
+    const source = document.getElementById(sourceId);
+    const target = document.getElementById(targetId);
+    if (source && target) target.value = source.value;
+  });
+  const researchChecked = !!document.getElementById('settings-research').checked;
+  if (document.getElementById('research-toggle')) document.getElementById('research-toggle').checked = researchChecked;
+  setHeroPreheat(researchChecked);
+  p.updateHeaderFromSelects();
+  const prefs = {
+    theme: getUiPrefs().theme,
+    enterStart: !!document.getElementById('settings-enter-start').checked,
+  };
+  const apiSettings = {
+    base_url: document.getElementById('settings-api-base-url').value.trim(),
+    api_key: document.getElementById('settings-api-key').value.trim(),
+    analyst_model: document.getElementById('settings-analyst-model').value.trim(),
+    executor_model: document.getElementById('settings-executor-model').value.trim(),
+    secretary_model: document.getElementById('settings-secretary-model').value.trim(),
+  };
+  const nextHeroTopics = getHeroTopics().map((item, idx) => ({
+    label: document.getElementById(`settings-hero-label-${idx}`)?.value.trim() || item.label,
+    topic: document.getElementById(`settings-hero-topic-${idx}`)?.value.trim() || item.topic,
+  }));
+  saveHeroTopics(nextHeroTopics);
+  renderHeroTopics();
+  saveUiPrefs(prefs);
+  saveApiSettings(apiSettings);
+  applyTheme(prefs.theme);
+  loadHealth().finally(() => loadRoles());
+  hideSettingsModal();
+}
+
+function applyAgentModal() {
+  const map = [
+    ['settings-role-a', 'role-a-select'],
+    ['settings-role-b', 'role-b-select'],
+    ['settings-role-c', 'role-c-select'],
+  ];
+  map.forEach(([sourceId, targetId]) => {
+    const source = document.getElementById(sourceId);
+    const target = document.getElementById(targetId);
+    if (!source || !target) return;
+    if (sourceId === 'settings-role-c' && !document.getElementById('settings-enable-third')?.checked) {
+      target.value = '';
+      return;
+    }
+    target.value = source.value;
+  });
+  p.updateHeaderFromSelects();
+  hideAgentModal();
+}
+
+function renderAgentManagerList() {
+  const list = document.getElementById('agent-manager-list');
+  if (!list) return;
+  const roles = getCustomRoles().filter(r => r.short !== SECRETARY_ROLE_SHORT);
+  if (!roles.length) {
+    list.innerHTML = '<div class="sb-empty" style="padding:16px 8px">还没有自定义 Agent</div>';
+    return;
+  }
+  list.innerHTML = roles.map(r => `
+    <div class="agent-manager-item">
+      <div class="agent-manager-meta">
+        <div class="agent-manager-name">${escHtml(r.icon || '🧩')} ${escHtml(r.name)}</div>
+        <div class="agent-manager-sub">${escHtml(r.model || '')} · ${escHtml(reasoningLabel(r.reasoning))}</div>
+      </div>
+      <div class="custom-role-actions">
+        <button class="btn-stage neutral" type="button" onclick="editManagedAgent('${escHtml(r.short)}')">编辑</button>
+        <button class="btn-stage neutral" type="button" onclick="deleteManagedAgent('${escHtml(r.short)}')">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openNewAgentFromManager() {
+  hideAgentModal();
+  customRoleTargetPanel = p;
+  customRoleTargetSide = 'manage';
+  customRoleEditingShort = '';
+  showCustomRoleModal(p, null, 'manage');
+}
+
+function editManagedAgent(short) {
+  const role = getCustomRoles().find(r => r.short === short);
+  if (!role) return;
+  hideAgentModal();
+  showCustomRoleModal(p, role, 'manage');
+}
+
+async function deleteManagedAgent(short) {
+  const role = getCustomRoles().find(r => r.short === short);
+  if (!role) return;
+  if (!confirm(`删除自定义 Agent「${role.name}」？`)) return;
+  saveCustomRoles(getCustomRoles().filter(r => r.short !== short));
+  ['role-a-select', 'role-b-select', 'role-c-select', 'role-secretary-select'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel && sel.value === short) sel.value = '';
+  });
+  await loadRoles();
+  syncAgentModalRoleSelects();
+  syncAgentRoleNote();
+  renderAgentManagerList();
+}
+
+function openSettingsRoleEditor(side) {
+  hideAgentModal();
+  const modalSelect = document.getElementById(`settings-role-${side}`);
+  const panelSelect = document.getElementById(`role-${side}-select`);
+  if (side === 'c' && (!document.getElementById('settings-enable-third')?.checked || (modalSelect && !modalSelect.value))) {
+    alert('先为 C 角色选一个第三辩手，再编辑它的 agent 设置。');
+    return;
+  }
+  if (modalSelect && panelSelect && modalSelect.value !== panelSelect.value) {
+    panelSelect.value = modalSelect.value;
+    p.updateHeaderFromSelects();
+  }
+  openPanelRoleSettings(p, side);
+}
+
+function heroPreheatEnabled() {
+  return document.getElementById('hero-preheat-btn')?.getAttribute('aria-pressed') === 'true';
+}
+
+function syncHeroPreheatUI() {
+  const btn = document.getElementById('hero-preheat-btn');
+  const note = document.getElementById('hero-note');
+  if (!btn || !note) return;
+  const enabled = heroPreheatEnabled();
+  btn.textContent = enabled ? 'Preheat on / 预热开' : 'Preheat off / 预热关';
+  note.textContent = enabled
+    ? 'Preheat is on: the researcher collects context, disputes, and key facts before debate. / 预热开启：先调研再进入辩论。'
+    : 'Preheat is off: start the debate directly. / 预热关闭：直接开始辩论。';
+}
+
+function setHeroPreheat(enabled) {
+  const btn = document.getElementById('hero-preheat-btn');
+  if (!btn) return;
+  btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+  syncHeroPreheatUI();
+}
+
+function toggleHeroPreheat() {
+  setHeroPreheat(!heroPreheatEnabled());
+}
+
+function heroStart(opts = {}) {
+  const val = document.getElementById('hero-input').value.trim();
+  if (!val) {
+    document.getElementById('hero-input').focus();
+    return;
+  }
+  if (!requireAppServer('Start debate / 开始辩论')) return;
+  const useResearch = opts.research ?? heroPreheatEnabled();
+  const researchToggle = document.getElementById('research-toggle');
+  if (researchToggle) researchToggle.checked = !!useResearch;
+  ta.value = val;
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 132) + 'px';
+  showWorkbench();
+  p.startRound();
+}
+
+function heroStartWith(topic) {
+  document.getElementById('hero-input').value = topic;
+  heroStart();
+}
+
+function fillHeroTopic(topic) {
+  const input = document.getElementById('hero-input');
+  input.value = topic;
+  input.focus();
+}
+
+function openSidebar() {
+  sidebar.classList.add('open');
+  sidebarScrim.classList.add('open');
+  loadHistory();
+}
+
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebarScrim.classList.remove('open');
+}
+
+function newTopic() {
+  p.newTopic();
+  if (currentMode() === 'simple') showHome();
+  closeHistView();
+  closeSidebar();
+}
+
+async function loadHealth() {
+  if (isFileMode()) {
+    modelHealth = { available_models: null, missing_default_models: [], models_error: '' };
+    return;
+  }
+  try {
+    const baseHealth = await fetch('/api/health').then(r => r.json());
+    modelHealth = baseHealth;
+    const apiSettings = getApiSettings();
+    if (apiSettings.api_key) {
+      try {
+        const resp = await fetch('/api/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base_url: apiSettings.base_url, api_key: apiSettings.api_key }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.detail || resp.statusText);
+        const available = data.models || [];
+        const defaultModels = {
+          analyst: apiSettings.analyst_model || baseHealth.default_models?.analyst || '',
+          executor: apiSettings.executor_model || baseHealth.default_models?.executor || '',
+          secretary: apiSettings.secretary_model || '',
+        };
+        modelHealth = {
+          ...baseHealth,
+          available_models: available,
+          default_models: defaultModels,
+          missing_default_models: Object.values(defaultModels).filter(model => model && !available.includes(model)),
+          models_error: '',
+        };
+      } catch (e) {
+        modelHealth = { ...baseHealth, available_models: null, missing_default_models: [], models_error: e.message };
+      }
+    }
+    showModelHealthWarning();
+  } catch (e) {
+    modelHealth = { available_models: null, missing_default_models: [], models_error: e.message };
+  }
+}
+
+function showModelHealthWarning() {
+  const missing = modelHealth.missing_default_models || [];
+  if (!missing.length) {
+    if (p.statusBar?.textContent?.includes('Default model unavailable')) p.setStatus('', '');
+    return;
+  }
+  const suffix = modelHealth.models_error ? ` (failed to fetch model list: ${modelHealth.models_error})` : '';
+  p.setStatus(`⚠️ Default model unavailable / 默认模型不可用：${missing.join('、')}${suffix}`, 'error');
+}
+
+function isRoleModelUnavailable(short) {
+  const available = modelHealth.available_models;
+  if (!Array.isArray(available)) return false;
+  const role = allRoles.find(r => normalizeRoleAlias(r.short) === normalizeRoleAlias(short));
+  if (!role || role.custom || !role.model) return false;
+  return !available.includes(role.model);
+}
+
+function getUnavailableRoleMessages(shorts) {
+  return shorts
+    .map(short => allRoles.find(r => r.short === short))
+    .filter(role => role && isRoleModelUnavailable(role.short))
+    .map(role => `${role.icon || '🤖'} ${role.name}：${role.model}`);
+}
+
+function roleOptionLabel(role) {
+  const suffix = isRoleModelUnavailable(role.short) ? ` · model unavailable / 模型不可用：${role.model}` : '';
+  return `${role.icon} ${role.name}${suffix}`;
+}
+
+function resumeTopic(entry, idx) {
+  setMode('advanced');
+  p.resumeTopic(entry, idx);
+  closeSidebar();
+}
+
+function normalizeRoleShort(value) {
+  const slug = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 36);
+  return `custom-${slug || Date.now().toString(36)}`;
+}
+
+function getCustomRoles() {
+  try {
+    const roles = JSON.parse(localStorage.getItem(CUSTOM_ROLES_KEY) || '[]');
+    return Array.isArray(roles) ? roles.filter(r => r && r.short && r.model && r.body) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveCustomRoles(roles) {
+  localStorage.setItem(CUSTOM_ROLES_KEY, JSON.stringify(roles));
+}
+
+function mergeCustomRoles(baseRoles) {
+  const seen = new Set(baseRoles.map(r => r.short));
+  const custom = getCustomRoles().filter(r => !seen.has(r.short));
+  return [...baseRoles, ...custom];
+}
+
+function fillCustomRoleForm(role = null) {
+  customRoleEditingShort = role?.short || '';
+  document.getElementById('custom-role-title').textContent = role ? '🧩 Edit Custom Agent / 编辑自定义角色' : '🧩 Custom Agent and Model / 自定义角色和模型';
+  document.getElementById('custom-role-save-btn').textContent = role ? 'Save changes / 保存修改' : 'Save and select / 保存并选择';
+  document.getElementById('custom-role-name').value = role?.name || '';
+  document.getElementById('custom-role-icon').value = role?.icon || '🧩';
+  document.getElementById('custom-role-base-url').value = role?.base_url || 'https://api.openai.com/v1';
+  document.getElementById('custom-role-api-key').value = role?.api_key || '';
+  document.getElementById('custom-role-model-select').innerHTML = '<option value="">Fetch models first, or type manually / 先拉取模型，或直接手动输入</option>';
+  document.getElementById('custom-role-model').value = role?.model || 'gpt-4.1';
+  document.getElementById('custom-role-subtitle').value = role?.subtitle || '自定义';
+  document.getElementById('custom-role-body').value = role?.body || '';
+  updateCustomReasoningOptions();
+  if (role?.reasoning) document.getElementById('custom-role-reasoning').value = role.reasoning;
+}
+
+function showCustomRoleModal(panel = p, role = null, side = 'a') {
+  customRoleTargetPanel = panel;
+  customRoleTargetSide = side;
+  fillCustomRoleForm(role);
+  renderCustomRoleList();
+  document.getElementById('custom-role-modal').classList.add('visible');
+  document.getElementById('custom-role-name').focus();
+}
+
+function hideCustomRoleModal() {
+  document.getElementById('custom-role-modal').classList.remove('visible');
+  customRoleEditingShort = '';
+}
+
+async function roleForPanelSettings(panel, side) {
+  const selectId = side === 'c' ? 'role-c-select' : (side === 'b' ? 'role-b-select' : 'role-a-select');
+  const short = normalizeRoleAlias(panel.$(selectId).value);
+  const role = allRoles.find(r => normalizeRoleAlias(r.short) === short);
+  if (!role) return null;
+  if (role.custom) return role;
+  if (isFileMode()) {
+    alert(`当前是文件模式，暂时拿不到内置角色的完整 prompt。\n请改用 ${appServerUrl()} 打开后再编辑。`);
+    return null;
+  }
+  try {
+    const resp = await fetch(`/api/role/${encodeURIComponent(short)}`);
+    if (!resp.ok) throw new Error(resp.statusText);
+    const data = await resp.json();
+    return {
+      ...role,
+      name: `${role.name}（自定义）`,
+      short: '',
+      body: data.body || '',
+      custom: false,
+    };
+  } catch (e) {
+    alert('Failed to load role prompt / 角色 prompt 加载失败：' + e.message);
+    return null;
+  }
+}
+
+async function openPanelRoleSettings(panel = p, side = 'a') {
+  const role = await roleForPanelSettings(panel, side);
+  if (!role) return;
+  showCustomRoleModal(panel, role, side);
+}
+
+function renderCustomRoleList() {
+  const list = document.getElementById('custom-role-list');
+  if (!list) return;
+  const roles = getCustomRoles();
+  if (!roles.length) {
+    list.innerHTML = '';
+    return;
+  }
+  list.innerHTML = roles.map(r => `
+    <div class="custom-role-item">
+      <span>${escHtml(r.icon || '🧩')} ${escHtml(r.name)} · ${escHtml(r.model)} · ${escHtml(reasoningLabel(r.reasoning))}</span>
+      <div class="custom-role-actions">
+        <button class="btn-stage neutral" onclick="editCustomRole('${escHtml(r.short)}')">编辑</button>
+        <button class="btn-stage neutral" onclick="deleteCustomRole('${escHtml(r.short)}')">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function editCustomRole(short) {
+  const role = getCustomRoles().find(r => r.short === short);
+  if (!role) return;
+  fillCustomRoleForm(role);
+}
+
+async function deleteCustomRole(short) {
+  saveCustomRoles(getCustomRoles().filter(r => r.short !== short));
+  if (customRoleEditingShort === short) fillCustomRoleForm(null);
+  renderCustomRoleList();
+  await loadRoles();
+}
+
+function selectCustomRoleModel() {
+  const val = document.getElementById('custom-role-model-select').value;
+  if (val) document.getElementById('custom-role-model').value = val;
+  updateCustomReasoningOptions();
+}
+
+function reasoningLabel(value) {
+  return ({ xhigh: '推理最高', high: '推理强', medium: '推理默认', low: '推理弱' })[value] || '推理默认';
+}
+
+function inferReasoningOptions(model) {
+  const id = String(model || '').toLowerCase();
+  if (id.includes('gpt-image') || id.includes('image') || id.includes('embedding')) {
+    return {
+      note: '当前模型看起来不是对话推理模型，建议保持默认。',
+      options: [{ value: 'medium', label: '默认' }],
+    };
+  }
+  if (id.includes('gpt-5') || id.includes('codex')) {
+    return {
+      note: '已按高阶推理模型推断：支持最高、强、默认、弱。',
+      options: [
+        { value: 'xhigh', label: '最高' },
+        { value: 'high', label: '强' },
+        { value: 'medium', label: '默认' },
+        { value: 'low', label: '弱' },
+      ],
+    };
+  }
+  if (/^o\\d|^o-|reason/.test(id)) {
+    return {
+      note: '已按推理模型推断：支持强、默认、弱。',
+      options: [
+        { value: 'high', label: '强' },
+        { value: 'medium', label: '默认' },
+        { value: 'low', label: '弱' },
+      ],
+    };
+  }
+  if (id.includes('claude')) {
+    return {
+      note: '该模型通常不支持最高推理档，按强、默认、弱处理。',
+      options: [
+        { value: 'high', label: '强' },
+        { value: 'medium', label: '默认' },
+        { value: 'low', label: '弱' },
+      ],
+    };
+  }
+  return {
+    note: '未知模型，保守提供默认和弱；需要更深推理可手动换支持推理档的模型。',
+    options: [
+      { value: 'medium', label: '默认' },
+      { value: 'low', label: '弱' },
+    ],
+  };
+}
+
+function updateCustomReasoningOptions() {
+  const sel = document.getElementById('custom-role-reasoning');
+  const meta = document.getElementById('custom-role-reasoning-meta');
+  const current = sel.value || 'medium';
+  const inferred = inferReasoningOptions(document.getElementById('custom-role-model').value);
+  sel.innerHTML = inferred.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
+  sel.value = inferred.options.some(opt => opt.value === current) ? current : (inferred.options.find(opt => opt.value === 'medium')?.value || inferred.options[0].value);
+  meta.textContent = inferred.note;
+}
+
+async function loadCustomRoleModels() {
+  if (!requireAppServer('Fetch model list / 拉取模型列表')) return;
+  const btn = typeof event !== 'undefined' ? event.target : null;
+  const sel = document.getElementById('custom-role-model-select');
+  const baseUrl = document.getElementById('custom-role-base-url').value.trim();
+  const apiKey = document.getElementById('custom-role-api-key').value.trim();
+  if (btn) btn.disabled = true;
+  if (btn) btn.textContent = 'Loading / 拉取中';
+  try {
+    const resp = await fetch('/api/models', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_url: baseUrl, api_key: apiKey }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(data.detail || resp.statusText);
+    const models = data.models || [];
+    sel.innerHTML = '<option value="">Select model / 选择模型</option>' + models.map(m => `<option value="${escHtml(m)}">${escHtml(m)}</option>`).join('');
+    if (models.length) {
+      sel.value = models.includes(document.getElementById('custom-role-model').value) ? document.getElementById('custom-role-model').value : models[0];
+      selectCustomRoleModel();
+    }
+  } catch (e) {
+    alert('Failed to fetch model list / 模型列表拉取失败：' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (btn) btn.textContent = 'Fetch models / 拉取模型';
+  }
+}
+
+async function saveCustomRole() {
+  const name = document.getElementById('custom-role-name').value.trim();
+  const icon = document.getElementById('custom-role-icon').value.trim() || '🧩';
+  const baseUrl = document.getElementById('custom-role-base-url').value.trim();
+  const apiKey = document.getElementById('custom-role-api-key').value.trim();
+  const model = document.getElementById('custom-role-model').value.trim();
+  const reasoning = document.getElementById('custom-role-reasoning').value;
+  const subtitle = document.getElementById('custom-role-subtitle').value.trim() || '自定义';
+  const body = document.getElementById('custom-role-body').value.trim();
+  if (!name || !model || !body) {
+    alert('Agent name, model ID, and role prompt are required. / 角色名、模型 ID、角色 prompt 都必填。');
+    return;
+  }
+  const short = customRoleEditingShort || normalizeRoleShort(`${name}-${Date.now().toString(36)}`);
+  const role = {
+    file: short,
+    short,
+    name,
+    icon,
+    model,
+    base_url: baseUrl,
+    api_key: apiKey,
+    reasoning,
+    subtitle,
+    color: 'purple',
+    tags: '自定义',
+    body,
+    custom: true,
+  };
+  const existing = getCustomRoles().filter(r => r.short !== short);
+  saveCustomRoles([...existing, role]);
+  hideCustomRoleModal();
+  await loadRoles(short, customRoleTargetPanel || p, customRoleTargetSide);
+}
+
+async function loadRoles(selectShort = '', targetPanel = p, targetSide = 'a') {
+  try {
+    rolesLoadMessage = '';
+    if (isFileMode()) {
+      allRoles = mergeCustomRoles(fallbackBaseRoles());
+      rolesLoadMessage = `当前是文件模式，角色列表使用内置兜底数据。完整功能请改用 ${appServerUrl()}`;
+    } else {
+      const resp = await fetch('/api/roles');
+      if (!resp.ok) throw new Error(resp.statusText || '角色接口不可用');
+      allRoles = mergeCustomRoles(await resp.json());
+    }
+    const selA = document.getElementById('role-a-select');
+    const selB = document.getElementById('role-b-select');
+    const selC = document.getElementById('role-c-select');
+    const selSecretary = document.getElementById('role-secretary-select');
+    const prevA = normalizeRoleAlias(selA.value);
+    const prevB = normalizeRoleAlias(selB.value);
+    const prevC = normalizeRoleAlias(selC.value);
+    const prevSecretary = selSecretary.value;
+    selA.innerHTML = '';
+    selB.innerHTML = '';
+    selC.innerHTML = '<option value="">无第三辩手</option>';
+    selSecretary.innerHTML = '<option value="">📝 默认秘书</option>';
+    allRoles.forEach((r, i) => {
+      const optA = document.createElement('option');
+      optA.value = r.short;
+      optA.textContent = roleOptionLabel(r);
+      optA.dataset.subtitle = r.subtitle || '';
+      optA.dataset.tags = r.tags || '';
+      if (normalizeRoleAlias(r.short) === prevA || (!prevA && i === 0)) optA.selected = true;
+      selA.appendChild(optA);
+
+      const optB = document.createElement('option');
+      optB.value = r.short;
+      optB.textContent = roleOptionLabel(r);
+      optB.dataset.subtitle = r.subtitle || '';
+      optB.dataset.tags = r.tags || '';
+      if (normalizeRoleAlias(r.short) === prevB || (!prevB && i === 1)) optB.selected = true;
+      selB.appendChild(optB);
+
+      const optC = document.createElement('option');
+      optC.value = r.short;
+      optC.textContent = roleOptionLabel(r);
+      optC.dataset.subtitle = r.subtitle || '';
+      optC.dataset.tags = r.tags || '';
+      if (normalizeRoleAlias(r.short) === prevC) optC.selected = true;
+      selC.appendChild(optC);
+
+      const optSecretary = document.createElement('option');
+      optSecretary.value = r.short;
+      optSecretary.textContent = roleOptionLabel(r);
+      if (r.short === prevSecretary || (!prevSecretary && r.short === SECRETARY_ROLE_SHORT)) optSecretary.selected = true;
+      selSecretary.appendChild(optSecretary);
+    });
+    if (selectShort) {
+      const targetSelect = targetSide === 'manage'
+        ? null
+        : targetSide === 'secretary'
+        ? selSecretary
+        : (targetPanel.$ ? targetPanel.$(targetSide === 'c' ? 'role-c-select' : (targetSide === 'b' ? 'role-b-select' : 'role-a-select')) : (targetSide === 'c' ? selC : (targetSide === 'b' ? selB : selA)));
+      const normalizedSelectShort = normalizeRoleAlias(selectShort);
+      if (targetSelect && [...targetSelect.options].some(opt => normalizeRoleAlias(opt.value) === normalizedSelectShort)) {
+        const match = [...targetSelect.options].find(opt => normalizeRoleAlias(opt.value) === normalizedSelectShort);
+        targetSelect.value = match.value;
+      }
+    }
+    syncSecretaryAgentLabel();
+    syncAgentRoleNote();
+    p.updateHeaderFromSelects();
+  } catch(e) {
+    rolesLoadMessage = `Failed to load roles / 角色加载失败：${e.message || e}. Check the local server, then reopen Agent Management.`;
+    allRoles = mergeCustomRoles(fallbackBaseRoles());
+    const selA = document.getElementById('role-a-select');
+    const selB = document.getElementById('role-b-select');
+    const selC = document.getElementById('role-c-select');
+    const selSecretary = document.getElementById('role-secretary-select');
+    if (selA && selB && selC && selSecretary) {
+      selA.innerHTML = '';
+      selB.innerHTML = '';
+      selC.innerHTML = '<option value="">无第三辩手</option>';
+      selSecretary.innerHTML = '<option value="">📝 默认秘书</option>';
+      allRoles.forEach((r, i) => {
+        const optA = document.createElement('option');
+        optA.value = r.short;
+        optA.textContent = roleOptionLabel(r);
+        if (i === 0) optA.selected = true;
+        selA.appendChild(optA);
+        const optB = document.createElement('option');
+        optB.value = r.short;
+        optB.textContent = roleOptionLabel(r);
+        if (i === 1) optB.selected = true;
+        selB.appendChild(optB);
+        const optC = document.createElement('option');
+        optC.value = r.short;
+        optC.textContent = roleOptionLabel(r);
+        selC.appendChild(optC);
+      });
+    }
+    syncSecretaryAgentLabel();
+    syncAgentRoleNote();
+    p.updateHeaderFromSelects();
+    console.warn('loadRoles failed', e);
+  }
+}
+
+document.getElementById('role-a-select').addEventListener('change', () => p.updateHeaderFromSelects());
+document.getElementById('role-b-select').addEventListener('change', () => p.updateHeaderFromSelects());
+document.getElementById('role-c-select').addEventListener('change', () => p.updateHeaderFromSelects());
+document.getElementById('role-secretary-select').addEventListener('change', () => p.updateHeaderFromSelects());
+
+ta.addEventListener('dragover', e => { e.preventDefault(); ta.style.borderColor = 'var(--accent)'; });
+ta.addEventListener('dragleave', () => { ta.style.borderColor = ''; });
+ta.addEventListener('drop', async e => {
+  e.preventDefault();
+  ta.style.borderColor = '';
+  if (e.dataTransfer.files.length) await p.handleFiles(e.dataTransfer.files);
+});
+ta.addEventListener('input', function() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 132) + 'px';
+});
+ta.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && isEnterStartEnabled()) {
+    e.preventDefault();
+    showWorkbench();
+    p.startRound();
+  }
+});
+
+function showExtractModal() {
+  document.getElementById('extract-modal').classList.add('visible');
+  document.getElementById('extract-topics').style.display = 'none';
+  document.getElementById('extract-topic-list').innerHTML = '';
+  document.getElementById('extract-input').value = '';
+  setTimeout(() => document.getElementById('extract-input').focus(), 60);
+}
+
+function hideExtractModal() {
+  document.getElementById('extract-modal').classList.remove('visible');
+}
+
+async function doExtract() {
+  const source = document.getElementById('extract-input').value.trim();
+  if (!source) return;
+  if (!requireUserApiKey()) return;
+  const topicList = document.getElementById('extract-topic-list');
+  const topicsArea = document.getElementById('extract-topics');
+  topicList.innerHTML = '<div class="modal-hint" style="color:var(--accent)">正在提取…</div>';
+  topicsArea.style.display = 'block';
+  try {
+    const resp = await fetch('/api/extract_topics', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({source, api_settings: getApiSettings()}),
+    });
+    const data = await resp.json();
+    if (!resp.ok) {
+      topicList.innerHTML = `<div style="color:var(--err);font-size:13px">${escHtml(data.detail || '提取失败')}</div>`;
+      return;
+    }
+    topicList.innerHTML = '';
+    (data.topics || []).forEach((t, i) => {
+      const item = document.createElement('div');
+      item.className = 'modal-topic-item';
+      item.textContent = `${i + 1}. ${t}`;
+      item.onclick = () => {
+        hideExtractModal();
+        showWorkbench();
+        ta.value = t;
+        ta.style.height = 'auto';
+        ta.style.height = Math.min(ta.scrollHeight, 132) + 'px';
+        ta.focus();
+      };
+      topicList.appendChild(item);
+    });
+    if (!(data.topics || []).length) {
+      topicList.innerHTML = '<div class="modal-hint">未抽到议题，请换一个网址或文件。</div>';
+    }
+  } catch(e) {
+    topicList.innerHTML = `<div style="color:var(--err);font-size:13px">Network error / 网络错误：${escHtml(e.message)}</div>`;
+  }
+}
+
+async function loadHistory() {
+  try {
+    historyData = await fetch('/api/history').then(r => r.json());
+    renderSidebar(historyData);
+    rebuildTagFilter(historyData);
+  } catch(e) {
+    console.warn('loadHistory failed', e);
+  }
+}
+
+function rebuildTagFilter(data) {
+  const sel = document.getElementById('sb-tag-filter');
+  const cur = sel.value;
+  const tags = new Set();
+  data.forEach(e => (e.tags || []).forEach(t => tags.add(t)));
+  sel.innerHTML = '<option value="">全部</option>';
+  [...tags].sort().forEach(tag => {
+    const opt = document.createElement('option');
+    opt.value = tag;
+    opt.textContent = tag;
+    if (tag === cur) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function filterSidebar() {
+  const kw = document.getElementById('sb-search').value.trim().toLowerCase();
+  const tag = document.getElementById('sb-tag-filter').value;
+  const filtered = historyData.filter(e => {
+    if (tag && !(e.tags || []).includes(tag)) return false;
+    if (!kw) return true;
+    const inTopic = (e.topic || '').toLowerCase().includes(kw);
+    const inHistory = (e.history || []).some(([, text]) => String(text).toLowerCase().includes(kw));
+    return inTopic || inHistory;
+  });
+  renderSidebar(filtered);
+}
+
+function renderSidebar(data) {
+  const list = document.getElementById('sb-list');
+  if (!data.length) {
+    list.innerHTML = '<div class="sb-empty">暂无历史</div>';
+    return;
+  }
+  list.innerHTML = '';
+  for (let i = data.length - 1; i >= 0; i--) {
+    const entry = data[i];
+    const realIdx = historyData.indexOf(entry);
+    const item = document.createElement('div');
+    item.className = 'sb-item';
+    item.dataset.idx = realIdx;
+    const preview = escHtml(entry.topic || '（无标题）');
+    const scores = entry.scores;
+    const scoreTag = scores ? `<span>${scores.depth}/${scores.consensus}/${scores.execution}</span>` : '';
+    const tags = (entry.tags || []).slice(0, 3).map(t => `<span class="sb-tag-chip">${escHtml(t)}</span>`).join('');
+    const status = entry.status || '';
+    const statusTag = status === 'running'
+      ? '<span class="sb-tag-chip">进行中</span>'
+      : (status === 'summarizing' ? '<span class="sb-tag-chip">总结中</span>' : '');
+    const todoDone = entry.todo_done || 0;
+    const todoTotal = entry.todo_total || 0;
+    const todoStr = todoTotal > 0 ? `<span class="sb-todo-progress">${todoDone}/${todoTotal} 完成</span>` : '';
+    item.innerHTML = `
+      <div class="sb-item-topic">${preview}</div>
+      <div class="sb-item-meta">${statusTag}${tags}${todoStr}${scoreTag}<span>${(entry.history || []).length} 轮</span></div>
+      <div style="margin-top:8px;display:flex;align-items:center;gap:7px">
+        <button class="btn-resume" data-idx="${realIdx}">继续</button>
+        <button class="btn-del-topic" data-idx="${realIdx}" title="删除此议题">删除</button>
+      </div>`;
+    item.onclick = e => {
+      if (e.target.closest('button')) return;
+      showHistDetail(entry, realIdx);
+      closeSidebar();
+    };
+    list.appendChild(item);
+  }
+  list.querySelectorAll('.btn-resume').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx, 10);
+      resumeTopic(historyData[idx], idx);
+    });
+  });
+  list.querySelectorAll('.btn-del-topic').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx, 10);
+      const entry = historyData[idx];
+      if (!confirm(`删除「${(entry?.topic || '').slice(0, 20)}」？此操作不可撤销`)) return;
+      await fetch(`/api/history/${idx}`, { method: 'DELETE' });
+      await loadHistory();
+    });
+  });
+}
+
+function showHistDetail(entry, realIdx) {
+  const view = document.getElementById('hist-view');
+  document.getElementById('hist-view-title').textContent = entry.topic || '历史议题';
+  const body = document.getElementById('hist-view-body');
+  body.innerHTML = '';
+
+  const tags = entry.tags || [];
+  if (tags.length) {
+    const tagRow = document.createElement('div');
+    tagRow.className = 'tags-row';
+    tagRow.style.marginBottom = '12px';
+    tags.forEach(t => {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.textContent = t;
+      tagRow.appendChild(chip);
+    });
+    body.appendChild(tagRow);
+  }
+
+  for (const [role, text] of entry.history || []) {
+    const isC = role === 'zhuge';
+    const isX = role === 'sima';
+    const isThird = role === 'third';
+    const cls = isC ? 'c' : (isX ? 'x' : (isThird ? 'm' : 'user'));
+    const sr = p.sessionRoles;
+    const name = isC ? `${sr.a.icon} ${sr.a.name}` : (isX ? `${sr.b.icon} ${sr.b.name}` : (isThird ? `${sr.c?.icon || '🔎'} ${sr.c?.name || '第三辩手'}` : 'USER'));
+    const wrap = document.createElement('div');
+    wrap.className = 'hist-turn';
+    wrap.innerHTML = `<div class="hist-turn-hd ${cls}">${escHtml(name)}</div><div class="hist-turn-body">${marked.parse(text)}</div>`;
+    body.appendChild(wrap);
+    p._attachCodeCopyButtons(wrap);
+  }
+
+  if (entry.scores) {
+    const s = entry.scores;
+    const scoreDiv = document.createElement('div');
+    scoreDiv.className = 'score-card';
+    scoreDiv.innerHTML = `
+      <div class="score-card-title">本场评分</div>
+      <div class="score-row">
+        <div>深度 <span class="score-num">${s.depth}/5</span></div>
+        <div>共识 <span class="score-num">${s.consensus}/5</span></div>
+        <div>执行 <span class="score-num">${s.execution}/5</span></div>
+      </div>
+      <div class="score-comment">${escHtml(s.comment || '')}</div>`;
+    body.appendChild(scoreDiv);
+  }
+
+  const todos = entry.todos || [];
+  if (todos.length) {
+    const todosDiv = document.createElement('div');
+    todosDiv.className = 'hist-todos';
+    todosDiv.innerHTML = `<div class="hist-todos-title">待办清单（${todos.filter(t => t.status === 'done').length}/${todos.length} 完成）</div>`;
+    todos.forEach((todo, j) => {
+      const item = document.createElement('div');
+      item.className = 'hist-todo-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'hist-todo-cb';
+      cb.checked = todo.status === 'done';
+      const textEl = document.createElement('span');
+      textEl.style.cssText = 'flex:1;line-height:1.55';
+      if (todo.status === 'done') textEl.style.textDecoration = 'line-through';
+      textEl.textContent = todo.text;
+      cb.addEventListener('change', async () => {
+        const ns = cb.checked ? 'done' : 'pending';
+        try {
+          await fetch(`/api/todos/${realIdx}/${j}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({status: ns}),
+          });
+          textEl.style.textDecoration = cb.checked ? 'line-through' : '';
+          loadHistory();
+        } catch(e) {
+          cb.checked = !cb.checked;
+        }
+      });
+      item.appendChild(cb);
+      item.appendChild(textEl);
+      todosDiv.appendChild(item);
+    });
+    body.appendChild(todosDiv);
+  }
+
+  view.classList.add('visible');
+}
+
+function closeHistView() {
+  document.getElementById('hist-view').classList.remove('visible');
+}
+
+async function showRoleModal(short) {
+  short = normalizeRoleAlias(short);
+  const customRole = allRoles.find(r => r.short === short && r.custom);
+  if (customRole) {
+    document.getElementById('role-modal-title').textContent = `${customRole.icon} ${customRole.name} · ${customRole.model}`;
+    document.getElementById('role-modal-body').innerHTML = marked.parse(customRole.body || '_(空)_');
+    document.getElementById('role-modal').classList.add('visible');
+    return;
+  }
+  if (isFileMode()) {
+    alert(`当前是文件模式，暂时拿不到内置角色的完整 prompt。\n请改用 ${appServerUrl()} 打开后再查看。`);
+    return;
+  }
+  try {
+    const resp = await fetch(`/api/role/${short}`);
+    if (!resp.ok) {
+      alert('Failed to load / 加载失败：' + resp.statusText);
+      return;
+    }
+    const data = await resp.json();
+    document.getElementById('role-modal-title').textContent = `${data.icon} ${data.name} · ${data.model}`;
+    document.getElementById('role-modal-body').innerHTML = marked.parse(data.body || '_(空)_');
+    document.getElementById('role-modal').classList.add('visible');
+  } catch (e) {
+    alert('Network error / 网络错误：' + e.message);
+  }
+}
+
+function hideRoleModal() {
+  document.getElementById('role-modal').classList.remove('visible');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+document.getElementById('extract-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideExtractModal();
+});
+document.getElementById('guide-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideGuideModal(true);
+});
+document.getElementById('role-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideRoleModal();
+});
+document.getElementById('settings-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideSettingsModal();
+});
+document.getElementById('agent-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideAgentModal();
+});
+document.getElementById('custom-role-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) hideCustomRoleModal();
+});
+document.getElementById('extract-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doExtract();
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    if (p.es) {
+      p.es.close();
+      p.es = null;
+      p.setStatus('已取消（Esc）', 'error');
+      p.unlock();
+      return;
+    }
+    hideExtractModal();
+    hideGuideModal();
+    hideRoleModal();
+    hideCustomRoleModal();
+    closeSidebar();
+    closeHistView();
+  }
+  if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) {
+    e.preventDefault();
+    setMode('advanced');
+    document.getElementById('sb-search').focus();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    showWorkbench();
+    p.startRound();
+  }
+  if (e.target.closest('.mode-switch')) {
+    if (e.key === 'ArrowLeft') setMode('simple');
+    if (e.key === 'ArrowRight') setMode('advanced');
+  }
+});
+
+const originalStartRound = p.startRound.bind(p);
+p.startRound = async function() {
+  showWorkbench();
+  const emptyState = document.getElementById('empty-state');
+  if (emptyState) emptyState.remove();
+  return originalStartRound();
+};
+
+const requestedMode = new URLSearchParams(location.search).get('mode');
+const initialMode = requestedMode === 'advanced'
+  ? 'advanced'
+  : location.pathname === '/simple'
+  ? 'simple'
+  : (localStorage.getItem(MODE_KEY) || 'simple');
+showRuntimeWarning(isFileMode() ? `当前是直接打开的 HTML 文件：角色列表会用前端兜底数据，完整功能请改用 ${appServerUrl()}` : '');
+setMode(initialMode, { skipPersist: true });
+applyTheme(getUiPrefs().theme);
+syncHeroPreheatUI();
+renderHeroTopics();
+if (initialMode === 'advanced') showWorkbench();
+loadHealth().finally(() => loadRoles());
+loadHistory();
+maybeShowGuide();
+</script>
+</body>
+</html>

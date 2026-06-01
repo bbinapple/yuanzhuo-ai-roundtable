@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+sse-starlette
+openai
+pypdf
+httpx
+html2text
+ddgs
+rich
