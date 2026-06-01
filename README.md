@@ -172,7 +172,7 @@ More docs:
 
 | Area | Status | Issue |
 |---|---|---|
-| Docker packaging | Planned | [#1](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/1) |
+| Docker packaging | Added, smoke pending | [#1](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/1) |
 | Provider presets | Planned | [#2](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/2) |
 | Streaming regression tests | Planned | [#3](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/3) |
 | i18n coverage | Planned | [#4](https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues/4) |
