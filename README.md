@@ -48,6 +48,22 @@ python ast ok
 All checks passed.
 ```
 
+## Screenshots
+
+The screenshots below use an empty local history and no real API key.
+
+### Single-panel workspace
+
+![Yuanzhuo single-panel workspace](docs/assets/yuanzhuo-home.png)
+
+### BYOK API settings
+
+![Yuanzhuo BYOK API settings](docs/assets/yuanzhuo-api-settings.png)
+
+### Dual-panel comparison workspace
+
+![Yuanzhuo dual-panel comparison workspace](docs/assets/yuanzhuo-dual.png)
+
 ## BYOK API Settings
 
 Yuanzhuo does not require the project maintainer to provide a shared model key. Each user can open `Settings -> API Settings` in the web UI and enter:

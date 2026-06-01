@@ -682,7 +682,7 @@ async def health():
         "executor": EXECUTOR_MODEL,
         "secretary": SECRETARY_MODEL,
     }
-    available_models = []
+    available_models = None
     models_error = "请用户在设置里输入自己的 API Key 后再拉取模型"
     missing = []
     return {
