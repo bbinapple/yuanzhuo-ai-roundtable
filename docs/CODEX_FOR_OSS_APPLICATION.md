@@ -1,5 +1,61 @@
 # Codex For OSS Application Draft
 
+Official form: https://openai.com/form/codex-for-oss/
+
+## Final Form Values
+
+Use these values when submitting the form.
+
+| Field | Value |
+|---|---|
+| First name | your first name |
+| Last name | your last name |
+| Email | email associated with your ChatGPT account |
+| GitHub username | bbinapple |
+| GitHub repository URL | https://github.com/bbinapple/yuanzhuo-ai-roundtable |
+| Describe your role | Primary maintainer |
+| I'm interested in | Codex Security; API credits for my project |
+| OpenAI Organization ID | TODO: paste from https://platform.openai.com/settings/organization/general |
+
+## Why This Repository Qualifies (500 Characters Max)
+
+Yuanzhuo AI Roundtable is a new local-first OSS workbench for structured multi-agent discussion, decision review, summaries, action items, and Markdown export. It is BYOK-first, transparent, and self-hostable, with clear privacy and deployment boundaries. I am not claiming large stars, downloads, or user numbers; its value is as an inspectable starting point for human-in-the-loop AI workflows.
+
+Character count: 396
+
+## How API Credits Would Be Used (500 Characters Max)
+
+I would use API credits for core OSS maintenance: testing OpenAI-compatible behavior across roles, generating regression cases for streaming sessions, improving summary/action-item prompts, reviewing PRs for safety and privacy issues, validating examples before releases, and drafting documentation updates that make the project easier and safer for contributors to run.
+
+Character count: 370
+
+## Anything Else We Should Know (500 Characters Max)
+
+The repository is public, MIT-licensed, and includes v0.1.0 release notes, security/privacy/deployment docs, issue templates, and a visible roadmap. The project is new, so I am intentionally not claiming broad adoption; I plan to maintain it through issues, releases, regression tests, and safety-focused PR review.
+
+Character count: 315
+
+## Public Project Evidence
+
+- Repository: https://github.com/bbinapple/yuanzhuo-ai-roundtable
+- Release: https://github.com/bbinapple/yuanzhuo-ai-roundtable/releases/tag/v0.1.0
+- Roadmap issues: https://github.com/bbinapple/yuanzhuo-ai-roundtable/issues
+- Security policy: https://github.com/bbinapple/yuanzhuo-ai-roundtable/blob/main/SECURITY.md
+- Privacy notes: https://github.com/bbinapple/yuanzhuo-ai-roundtable/blob/main/docs/PRIVACY.md
+- Deployment notes: https://github.com/bbinapple/yuanzhuo-ai-roundtable/blob/main/docs/DEPLOYMENT.md
+
+## Submission Checklist
+
+- [x] Public GitHub repository.
+- [x] Public release `v0.1.0`.
+- [x] Public roadmap issues.
+- [x] MIT license.
+- [x] Security, privacy, deployment, and contributing docs.
+- [x] No maintainer-owned API key in the repository.
+- [x] No large stars/downloads/user claims.
+- [ ] OpenAI Organization ID pasted into the form.
+- [ ] Manual final review and submit.
+
 ## Repository Description
 
 Yuanzhuo AI Roundtable is an open-source multi-agent roundtable workbench for structured AI debates, decision review, meeting summaries, action items, and Markdown exports. Users bring their own OpenAI-compatible API key.
